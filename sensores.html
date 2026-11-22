@@ -1,1 +1,262 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101112"><title>SIMTELE / RISK — Métodos numéricos</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body><header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav><a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a></header><main><div class="shell"><div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div><section class="section module-intro"><div class="eyebrow">04 / DATOS / EN DESARROLLO</div><h1>Reconstrucción de sensores</h1><p class="lead">¿Cómo recuperar una señal con lecturas faltantes?</p><div class="split"><div class="prose"><h3>El planteamiento</h3><p>El modelo propuesto utiliza datos sintéticos de una función conocida para comparar reconstrucciones y medir el error.</p><p><b>Métodos previstos:</b> Interpolación de Lagrange, Newton y splines cúbicos.</p></div><div class="callout"><b>Escenarios propuestos</b><p>Normal: nodos regulares y datos consistentes.</p><p>Estrés: mayor ruido o más lecturas faltantes.</p><p>Mal condicionado: nodos desfavorables con sensibilidad por verificar.</p></div></div><p class="module-note">Este módulo aún no tiene simulador ni resultados implementados.</p></section></div></main><footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p><span>HECHO PARA PREGUNTAR MEJOR ↗</span></footer></body></html>
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101112">
+    <title>SIMTELE / RISK — Métodos numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+        <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
+        <a class="navcta" href="sensores.html#simulador">Abrir simulador <span>↗</span></a>
+    </header>
+    <main>
+        <div class="shell">
+            <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
+            <section id="sensores" class="section article">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">CASO DE ESTUDIO <span>/ 04</span></div>
+                        <h2>Reconstrucción de sensores<br><em>datos faltantes y ruido.</em></h2>
+                    </div>
+                    <p>DATOS HIPOTÉTICOS<br>MODELO EDUCATIVO · V1.0</p>
+                </div>
+                <div class="article-grid">
+                    <aside>
+                        <div class="eyebrow">EN ESTA SECCIÓN</div><a href="#modelo">01 &nbsp; El modelo</a><a
+                            href="#notacion">02 &nbsp; Notación</a><a href="#simulador">03 &nbsp; Simulador</a><a
+                            href="#interpretacion">04 &nbsp; Interpretación</a>
+                    </aside>
+                    <div class="prose article-body">
+                        <p class="lead">¿Cómo recuperar lecturas faltantes y medir la distorsión que producen datos con
+                            ruido?</p>
+                        <p>Se parte de una señal sintética conocida <em>y(t)</em> y se interpolan los valores en puntos
+                            donde no hay medición.</p>
+                        <h3 id="modelo">01 &nbsp; Del problema al modelo</h3>
+                        <p>Con nodos de medición y sus valores, se reconstruye la señal con <b>Lagrange</b>,
+                            <b>Newton (diferencias divididas)</b> y <b>splines cúbicos</b>. Se ocultan algunos puntos para
+                            medir el error real de predicción.</p>
+                        <div class="formula">Lagrange: P(x) = Σ yᵢ·Lᵢ(x) <span>Newton: P(x) = f[x₀] + f[x₀,x₁](x−x₀) + …</span></div>
+                        <div class="formula">Spline: Sᵢ(x) = aᵢ + bᵢ(x−xᵢ) + cᵢ(x−xᵢ)² + dᵢ(x−xᵢ)³ <span>Raíz: interp(x) − umbral = 0</span></div>
+                        <div class="callout"><b>¿Qué nos dicen los errores?</b><br>El error sobre puntos ocultados mide
+                            cuán bien predice el interpolador datos que no vio. Nodos desfavorables pueden generar el
+                            fenómeno de Runge y una reconstrucción poco confiable.</div>
+                        <h3 id="notacion">02 &nbsp; El lenguaje del modelo</h3>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>SÍMBOLO</th>
+                                        <th>INTERPRETACIÓN</th>
+                                        <th>UNIDAD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>y(t)</td>
+                                        <td>Señal sintética de referencia</td>
+                                        <td>adimensional</td>
+                                    </tr>
+                                    <tr>
+                                        <td>t</td>
+                                        <td>Tiempo</td>
+                                        <td>s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>n</td>
+                                        <td>Número de nodos de medición</td>
+                                        <td>—</td>
+                                    </tr>
+                                    <tr>
+                                        <td>xᵢ</td>
+                                        <td>Nodo de medición i</td>
+                                        <td>s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>yᵢ</td>
+                                        <td>Valor medido en el nodo i</td>
+                                        <td>adimensional</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="simulador" class="section simulator">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">LABORATORIO INTERACTIVO <span>/ 03</span></div>
+                        <h2>Prueba una <em>hipótesis.</em></h2>
+                    </div>
+                    <p>Cambia nodos, señal y puntos ocultados. Mira cómo responde la reconstrucción.</p>
+                </div>
+                <div class="simgrid">
+                    <div class="panel">
+                        <div class="paneltitle"><span>01 / ENTRADAS</span><span>DATOS SINTÉTICOS</span></div><label
+                            for="scenario-sen">Escenario</label><select id="scenario-sen">
+                            <option value="normal">Normal</option>
+                            <option value="estres">Estrés</option>
+                            <option value="mal">Mal condicionado</option>
+                        </select>
+                        <p class="hint" id="scenario-sen-desc"></p>
+                        <div class="fields"><label>Señal <select id="funcion-sen"><option value="sin">sin(t)</option><option value="exp">e^(−t)</option></select></label><label>Número de nodos <input id="n-nodos" type="number" step="1" min="3" max="20" value="7"></label><label>Intervalo a <input id="sen-a" type="number" step="any" value="0"></label><label>Intervalo b <input id="sen-b" type="number" step="any" value="6.283"></label><label>Ruido <input id="sen-ruido" type="number" step="any" value="0"></label><label>Puntos a ocultar <input id="sen-ocultar" type="number" step="1" min="0" max="10" value="2"></label><label>Umbral para raíz <input id="sen-umbral" type="number" step="any" value="0.5"></label><label>Tolerancia <input id="tol-sen" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div>
+                        <p class="hint">El escenario mal condicionado agrupa nodos en los bordes (fenómeno de Runge).</p><button id="run-sen" class="button dark">Ejecutar simulación <span>↗</span></button>
+                        <p id="error-sen" class="error" role="alert"></p>
+                    </div>
+                    <div id="output-sen" class="panel output" tabindex="-1">
+                        <div class="paneltitle"><span>02 / RESULTADOS</span><span>RECONSTRUCCIÓN DE SEÑAL</span></div>
+                        <p id="output-status-sen" class="output-status" role="status">Preparando resultados…</p>
+                        <div class="metrics">
+                            <div><small>ERROR LAGRANGE</small><strong id="err-lag">—</strong></div>
+                            <div><small>ERROR NEWTON</small><strong id="err-new">—</strong></div>
+                            <div><small>ERROR SPLINE</small><strong id="err-spl">—</strong></div>
+                        </div><svg id="chart-sen" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de señal original y reconstrucciones"></svg>
+                        <div class="legend"><span>● Referencia</span><span>● Reconstrucción</span><span>○ Nodos</span></div>
+                        <p id="explanation-sen" class="result-text" aria-live="polite"></p>
+                        <svg id="chart2-sen" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de error de predicción por método"></svg>
+                        <div class="legend"><span>● Error por método</span></div>
+                        <p class="hint">Este gráfico muestra barras del error medio de predicción en puntos ocultados para cada método de interpolación (Lagrange, Newton, Spline). El método con menor barra reconstruye mejor los datos faltantes. Consulta la tabla 03 (COMPARACIÓN NUMÉRICA) para ver los valores exactos de error absoluto, relativo y porcentual de cada método.</p>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>GUARDAR Y CONSULTAR</span><span>HISTORIAL PERSONAL</span></div>
+                    <div class="actions"><button id="save" class="button dark">Guardar simulación <span>↗</span></button><button id="history" class="button dark">Ver historial <span>↗</span></button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                    <ul id="history-list"></ul>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>03 / COMPARACIÓN NUMÉRICA</span><span>ERROR DE PREDICCIÓN EN PUNTOS OCULTADOS</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>ESTADO</th>
+                                    <th>ERROR ABS. (ocultos)</th>
+                                    <th>ERROR REL. (ocultos)</th>
+                                    <th>ERROR % (ocultos)</th>
+                                    <th>ERROR ABS. (conocidos)</th>
+                                    <th>RESIDUO</th>
+                                </tr>
+                            </thead>
+                            <tbody id="method-results-sen"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>04 / BÚSQUEDA DE RAÍZ</span><span>interpolada(t) = umbral</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>TIEMPO (t)</th>
+                                    <th>CONVERGIÓ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="root-results-sen"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>05 / EVOLUCIÓN POR ITERACIÓN</span><span>APROXIMACIONES Y ERRORES</span></div>
+                    <p class="hint">Abre cada método para comparar su evolución. Se muestran todas las iteraciones con valores finitos.</p>
+                    <div id="iteration-results-sen"></div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>06 / ESCENARIOS DE REFERENCIA</span><span>DATOS PREDEFINIDOS</span></div>
+                    <p class="hint">Esta comparación usa los valores predeterminados de cada escenario. El simulador de arriba muestra tus entradas actuales.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ESCENARIO</th>
+                                    <th>MÉTODO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scenario-results-sen"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>07 / SENSIBILIDAD</span><span>PERTURBACIÓN EN UN NODO DE MEDICIÓN</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>ERROR ORIGINAL</th>
+                                    <th>ERROR PERTURBADO</th>
+                                    <th>CAMBIO EN ERROR</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensitivity-sen"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Se perturba el valor del primer nodo en +0,0001 y se mide el cambio en el error de predicción.</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>08 / CONCLUSIONES</span><span>INTERPRETACIÓN</span></div>
+                    <div id="conclusion-sen"></div>
+                </div>
+            </section>
+            <div class="panel account" id="cuenta">
+                <div>
+                    <div class="eyebrow">HISTORIAL PERSONAL</div>
+                    <h3>Guarda tus experimentos.</h3>
+                    <p>Inicia sesión para recuperar tus parámetros y repetir una simulación.</p>
+                </div>
+                <div>
+                    <div class="fields"><label>Correo <input id="email" type="email"
+                                autocomplete="email"></label><label>Contraseña <input id="password" type="password"
+                                autocomplete="current-password"></label></div>
+                    <div class="actions"><button id="signin">Entrar</button><button id="signup">Crear
+                            cuenta</button><button id="signout">Salir</button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                    
+                </div>
+            </div>
+            <section id="interpretacion" class="section split conclusion">
+                <div>
+                    <div class="eyebrow">UNA LECTURA RESPONSABLE <span>/ 04</span></div>
+                    <h2>El resultado no es<br><em>el final de la pregunta.</em></h2>
+                </div>
+                <div class="prose">
+                    <h3>Conclusión numérica</h3>
+                    <p>Compara Lagrange, Newton y splines cúbicos frente a la señal de referencia.</p>
+                    <h3>Conclusión del problema</h3>
+                    <p>La curva estima valores faltantes bajo los supuestos del modelo. Es una señal educativa para el
+                        análisis de sensores, no una medición de equipos reales.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
+        <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
+    </footer>
+    <script type="module" src="sensores-app.js"></script>
+</body>
+
+</html>

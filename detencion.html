@@ -1,1 +1,278 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101112"><title>SIMTELE / RISK — Métodos numéricos</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body><header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav><a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a></header><main><div class="shell"><div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div><section class="section module-intro"><div class="eyebrow">01 / DINÁMICA / EN DESARROLLO</div><h1>Detención de emergencia</h1><p class="lead">¿Cuánto tiempo y distancia necesita una cabina para detenerse?</p><div class="split"><div class="prose"><h3>El planteamiento</h3><p>El modelo propuesto considera la velocidad inicial, el tiempo de reacción y una desaceleración hipotética.</p><p><b>Métodos previstos:</b> EDO, integración y búsqueda de raíces.</p></div><div class="callout"><b>Escenarios propuestos</b><p>Normal: parámetros nominales de frenado.</p><p>Estrés: mayor velocidad o menor desaceleración.</p><p>Mal condicionado: un análisis de sensibilidad de la estimación, pendiente de definición y verificación.</p></div></div><p class="module-note">Este módulo aún no tiene simulador ni resultados implementados.</p></section></div></main><footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p><span>HECHO PARA PREGUNTAR MEJOR ↗</span></footer></body></html>
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101112">
+    <title>SIMTELE / RISK — Métodos numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+        <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
+        <a class="navcta" href="detencion.html#simulador">Abrir simulador <span>↗</span></a>
+    </header>
+    <main>
+        <div class="shell">
+            <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
+            <section id="detencion" class="section article">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">CASO DE ESTUDIO <span>/ 01</span></div>
+                        <h2>Detención de cabina<br><em>tiempo y distancia.</em></h2>
+                    </div>
+                    <p>DINÁMICA HIPOTÉTICA<br>MODELO EDUCATIVO · V1.0</p>
+                </div>
+                <div class="article-grid">
+                    <aside>
+                        <div class="eyebrow">EN ESTA SECCIÓN</div><a href="#modelo">01 &nbsp; El modelo</a><a
+                            href="#notacion">02 &nbsp; Notación</a><a href="#simulador">03 &nbsp; Simulador</a><a
+                            href="#interpretacion">04 &nbsp; Interpretación</a>
+                    </aside>
+                    <div class="prose article-body">
+                        <p class="lead">¿Cuánto tiempo y distancia necesita una cabina para detenerse?</p>
+                        <p>El modelo considera una velocidad inicial <em>v₀</em>, un tiempo de reacción <em>tᵣ</em> con
+                            velocidad constante y un frenado con desaceleración <em>a</em>.</p>
+                        <h3 id="modelo">01 &nbsp; Del problema al modelo</h3>
+                        <p>Tras la reacción, se resuelve el sistema de EDO <em>x′ = v</em> y <em>v′ = −a</em>. La solución
+                            analítica de referencia es:</p>
+                        <div class="formula">t_total = tᵣ + v₀/a <span>d_total = v₀·tᵣ + v₀²/(2a)</span></div>
+                        <p>Se integran las ecuaciones con <b>RK2 y RK4</b>, se calcula la distancia con <b>trapecio,
+                            Simpson y Romberg</b>, y se busca el instante <em>v(t) = 0</em> con <b>bisección, Newton y
+                            secante</b>.</p>
+                        <div class="callout"><b>¿Qué nos dicen los errores?</b><br>El error absoluto y relativo miden la
+                            diferencia frente a la referencia analítica. La sensibilidad muestra cómo cambios en la
+                            desaceleración afectan el tiempo de detención.</div>
+                        <h3 id="notacion">02 &nbsp; El lenguaje del modelo</h3>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>SÍMBOLO</th>
+                                        <th>INTERPRETACIÓN</th>
+                                        <th>UNIDAD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>v₀</td>
+                                        <td>Velocidad inicial</td>
+                                        <td>m/s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>tᵣ</td>
+                                        <td>Tiempo de reacción</td>
+                                        <td>s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>a</td>
+                                        <td>Desaceleración de frenado</td>
+                                        <td>m/s²</td>
+                                    </tr>
+                                    <tr>
+                                        <td>t</td>
+                                        <td>Tiempo transcurrido</td>
+                                        <td>s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>x(t)</td>
+                                        <td>Posición recorrida</td>
+                                        <td>m</td>
+                                    </tr>
+                                    <tr>
+                                        <td>v(t)</td>
+                                        <td>Velocidad instantánea</td>
+                                        <td>m/s</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="simulador" class="section simulator">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">LABORATORIO INTERACTIVO <span>/ 03</span></div>
+                        <h2>Prueba una <em>hipótesis.</em></h2>
+                    </div>
+                    <p>Cambia velocidad, reacción y desaceleración. Mira cómo responde el modelo.</p>
+                </div>
+                <div class="simgrid">
+                    <div class="panel">
+                        <div class="paneltitle"><span>01 / ENTRADAS</span><span>DATOS SINTÉTICOS</span></div><label
+                            for="scenario-det">Escenario</label><select id="scenario-det">
+                            <option value="normal">Normal</option>
+                            <option value="estres">Estrés</option>
+                            <option value="mal">Mal condicionado</option>
+                        </select>
+                        <p class="hint" id="scenario-det-desc"></p>
+                        <div class="fields"><label>Velocidad inicial v₀ (m/s) <input id="v0" type="number" step="any"
+                                    value="12"></label><label>Tiempo de reacción tᵣ (s) <input id="tr" type="number"
+                                    step="any" value="1"></label><label>Desaceleración a (m/s²) <input id="a"
+                                    type="number" step="any" value="3"></label><label>Tolerancia <input id="tol-det"
+                                    type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label><label>Paso
+                                h (s) <input id="h-det" type="number" step="any" value="0.01"></label></div>
+                        <p class="hint">El escenario mal condicionado usa desaceleración muy pequeña; el tiempo de
+                            detención es muy sensible.</p><button id="run-det" class="button dark">Ejecutar simulación
+                            <span>↗</span></button>
+                        <p id="error-det" class="error" role="alert"></p>
+                    </div>
+                    <div id="output-det" class="panel output" tabindex="-1">
+                        <div class="paneltitle"><span>02 / RESULTADOS</span><span>MODELO DINÁMICO</span></div>
+                        <p id="output-status-det" class="output-status" role="status">Preparando resultados…</p>
+                        <div class="metrics">
+                            <div><small>TIEMPO AL CERO</small><strong id="t-cero">—</strong><span>s</span></div>
+                            <div><small>DISTANCIA TOTAL</small><strong id="d-total">—</strong><span>m</span></div>
+                            <div><small>TIEMPO REFERENCIA</small><strong id="t-ref">—</strong><span>s</span></div>
+                        </div><svg id="chart-det" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de posición y velocidad vs tiempo"></svg>
+                        <div class="legend"><span>● Posición x(t)</span><span>● Velocidad v(t)</span></div>
+                        <p id="explanation-det" class="result-text" aria-live="polite"></p>
+                        <svg id="chart2-det" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de error absoluto por método"></svg>
+                        <div class="legend"><span>● Error por método</span></div>
+                        <p class="hint">Este gráfico muestra barras del error absoluto de cada método (RK2, RK4, Trapecio, Simpson, Romberg, Bisección, Newton, Secante) respecto a la referencia analítica. Los colores indican la familia: verde para EDO, azul para integración, rojo para raíces. Consulta la tabla 03 (COMPARACIÓN NUMÉRICA) para ver los valores exactos de error absoluto, relativo y porcentual de cada método.</p>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>GUARDAR Y CONSULTAR</span><span>HISTORIAL PERSONAL</span></div>
+                    <div class="actions"><button id="save" class="button dark">Guardar simulación <span>↗</span></button><button id="history" class="button dark">Ver historial <span>↗</span></button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                    <ul id="history-list"></ul>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>03 / COMPARACIÓN NUMÉRICA</span><span>REFERENCIA: SOLUCIÓN ANALÍTICA</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>ESTADO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>RESIDUO</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="method-results-det"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Referencia analítica: t_total = tᵣ + v₀/a ; d_total = v₀·tᵣ + v₀²/(2a).</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>04 / BÚSQUEDA DE RAÍCES</span><span>v(t) = 0 → tiempo de detención</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>TIEMPO (s)</th>
+                                    <th>ITERACIONES</th>
+                                    <th>CONVERGIÓ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="root-results-det"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>05 / EVOLUCIÓN POR ITERACIÓN</span><span>APROXIMACIONES Y ERRORES</span></div>
+                    <p class="hint">Abre cada método para comparar su evolución. Se muestran todas las iteraciones con valores finitos.</p>
+                    <div id="iteration-results-det"></div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>06 / ESCENARIOS DE REFERENCIA</span><span>DATOS PREDEFINIDOS</span></div>
+                    <p class="hint">Esta comparación usa los valores predeterminados de cada escenario. El simulador de arriba muestra tus entradas actuales.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ESCENARIO</th>
+                                    <th>MÉTODO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scenario-results-det"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>07 / SENSIBILIDAD</span><span>PERTURBACIÓN EN LA DESACELERACIÓN a</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PARÁMETRO</th>
+                                    <th>VALOR ORIGINAL</th>
+                                    <th>VALOR PERTURBADO</th>
+                                    <th>CAMBIO EN t_total (s)</th>
+                                    <th>CAMBIO EN d_total (m)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensitivity-det"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Se perturba la desaceleración a en +0,0001 y se mide el cambio en tiempo y distancia de detención.</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>08 / CONCLUSIONES</span><span>INTERPRETACIÓN</span></div>
+                    <div id="conclusion-det"></div>
+                </div>
+            </section>
+            <div class="panel account" id="cuenta">
+                <div>
+                    <div class="eyebrow">HISTORIAL PERSONAL</div>
+                    <h3>Guarda tus experimentos.</h3>
+                    <p>Inicia sesión para recuperar tus parámetros y repetir una simulación.</p>
+                </div>
+                <div>
+                    <div class="fields"><label>Correo <input id="email" type="email"
+                                autocomplete="email"></label><label>Contraseña <input id="password" type="password"
+                                autocomplete="current-password"></label></div>
+                    <div class="actions"><button id="signin">Entrar</button><button id="signup">Crear
+                            cuenta</button><button id="signout">Salir</button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                </div>
+            </div>
+            <section id="interpretacion" class="section split conclusion">
+                <div>
+                    <div class="eyebrow">UNA LECTURA RESPONSABLE <span>/ 04</span></div>
+                    <h2>El resultado no es<br><em>el final de la pregunta.</em></h2>
+                </div>
+                <div class="prose">
+                    <h3>Conclusión numérica</h3>
+                    <p>Compara residuos, errores y convergencia de los métodos numéricos aplicados a la dinámica de
+                        frenado.</p>
+                    <h3>Conclusión del problema</h3>
+                    <p>La curva estima cuándo se detiene la cabina bajo los supuestos del modelo. Es una señal educativa
+                        para el análisis de riesgos, no una predicción de operación real.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
+        <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
+    </footer>
+    <script type="module" src="detencion-app.js"></script>
+</body>
+
+</html>
