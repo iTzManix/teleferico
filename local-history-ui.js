@@ -1,0 +1,10 @@
+import {experiment,VERSION} from './experiments.js';
+import {saveExperiment,listExperiments,loadExperiment} from './history-store.js';
+export function mountLocalHistory(caso,getInputs,restore) {
+  const panel=document.createElement('section');panel.className='panel local-history';
+  panel.innerHTML='<h3>Ensayo local de persistencia</h3><p>Guarda en este navegador usando las siete entidades del DER. Puedes cerrar la pestaña, volver y recuperar las entradas y el resultado original. Este historial es independiente de tu cuenta de Supabase.</p><div class="actions"><button type="button" data-local-save>Guardar experimento local</button><button type="button" data-local-list>Recuperar experimentos locales</button></div><p role="status" data-local-message></p><ul data-local-items></ul>';
+  const host=document.getElementById('simulador');host.append(panel);
+  const msg=t=>panel.querySelector('[data-local-message]').textContent=t;
+  panel.querySelector('[data-local-save]').onclick=async()=>{try{const inputs=getInputs(),r=experiment(caso,inputs.scenario,inputs),id=await saveExperiment(r);msg(`Experimento ${id} guardado · modelo ${VERSION}. Recarga y recupéralo para comprobar persistencia.`);}catch(e){msg(e.message);}};
+  panel.querySelector('[data-local-list]').onclick=async()=>{try{const rows=(await listExperiments()).filter(r=>r.caso===caso),list=panel.querySelector('[data-local-items]');list.replaceChildren();for(const r of rows){const li=document.createElement('li'),b=document.createElement('button');b.textContent=`Experimento ${r.id} · ${r.fecha} · ${r.version_modelo} · ${r.parametros_entrada_json.scenario} · Recuperar y repetir`;b.onclick=async()=>{try{const saved=await loadExperiment(r.id);restore(saved.simulation.parametros_entrada_json);msg(`Recuperado ${r.id}: ${saved.methods.length} resultados originales. Repetido con modelo ${VERSION}${r.version_modelo!==VERSION?' (versión distinta de la guardada)':''}.`);}catch(e){msg(e.message);}};li.append(b);list.append(li);}msg(rows.length?`${rows.length} experimentos disponibles.`:'No hay experimentos locales guardados para este caso.');}catch(e){msg(e.message);}};
+}

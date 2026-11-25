@@ -1,1 +1,302 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101112"><title>SIMTELE / RISK — Métodos numéricos</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body><header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav><a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a></header><main><div class="shell"><div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div><section id="deterioro" class="section article"><div class="section-top"><div><div class="eyebrow">CASO DE ESTUDIO <span>/ 02</span></div><h2>El tiempo también<br><em>deja una huella.</em></h2></div><p>RODAMIENTO HIPOTÉTICO<br>MODELO EDUCATIVO · V1.0</p></div><div class="article-grid"><aside><div class="eyebrow">EN ESTA SECCIÓN</div><a href="#modelo">01 &nbsp; El modelo</a><a href="#notacion">02 &nbsp; Notación</a><a href="#simulador">03 &nbsp; Simulador</a><a href="#interpretacion">04 &nbsp; Interpretación</a></aside><div class="prose article-body"><p class="lead">¿Cuándo alcanzaría un rodamiento un nivel de deterioro que sugiera una inspección?</p><p>Imaginemos un indicador sintético que resume su estado. No medimos el desgaste real: construimos una trayectoria hipotética para estudiar cómo las observaciones, el sesgo y los métodos afectan nuestra estimación.</p><h3 id="modelo">01 &nbsp; Del problema al modelo</h3><p>Representamos el índice con una curva cuadrática. La lectura observada incluye un sesgo constante del sensor:</p><div class="formula">D(t) = D₀ + αt + βt² <span>y(t) = D(t) + s</span></div><p>El sesgo <b>s</b> se obtiene mediante una <b>calibración independiente</b>. Sin ella, las lecturas solo permiten observar la suma D₀ + s: no es posible distinguir ambos valores de forma única.</p><p>Con lecturas en los meses 0, 1 y 2 y una medida independiente del sesgo, construimos cuatro ecuaciones. Sus ecuaciones normales forman un sistema simétrico definido positivo. Comparamos Jacobi, Gauss-Seidel, LU y gradiente conjugado con la solución de referencia de las cuatro observaciones.</p><div class="callout"><b>¿Qué nos dicen los errores?</b><br>El residuo mide cuánto incumple la solución el sistema. El error frente a la referencia mide la diferencia entre soluciones. Un residuo pequeño no siempre implica un error pequeño si el problema está mal condicionado.</div><h3 id="notacion">02 &nbsp; El lenguaje del modelo</h3><div class="table-wrap"><table><thead><tr><th>SÍMBOLO</th><th>INTERPRETACIÓN</th><th>UNIDAD</th></tr></thead><tbody><tr><td>D(t)</td><td>Índice hipotético de deterioro</td><td>puntos</td></tr><tr><td>D₀</td><td>Índice inicial tras la inspección</td><td>puntos</td></tr><tr><td>α</td><td>Ritmo inicial de crecimiento</td><td>puntos / mes</td></tr><tr><td>β</td><td>Cambio cuadrático del deterioro</td><td>puntos / mes²</td></tr><tr><td>s</td><td>Sesgo constante medido independientemente</td><td>puntos</td></tr><tr><td>t</td><td>Tiempo desde la inspección</td><td>meses</td></tr><tr><td>U</td><td>Umbral hipotético de inspección</td><td>puntos</td></tr></tbody></table></div></div></div></section><section id="simulador" class="section simulator"><div class="section-top"><div><div class="eyebrow">LABORATORIO INTERACTIVO <span>/ 03</span></div><h2>Prueba una <em>hipótesis.</em></h2></div><p>Cambia las observaciones y mira cómo responde el modelo.</p></div><div class="simgrid"><div class="panel"><div class="paneltitle"><span>01 / ENTRADAS</span><span>DATOS SINTÉTICOS</span></div><label for="scenario">Escenario</label><select id="scenario"><option value="normal">Normal</option><option value="estres">Estrés</option><option value="mal">Mal condicionado</option></select><p class="hint" id="scenario-desc"></p><div class="fields"><label>Primera lectura (t = 0) <input id="y0" type="number" step="any" value="13"></label><label>Segunda lectura <input id="y1" type="number" step="any" value="15.5"></label><label>Tercera lectura <input id="y2" type="number" step="any" value="19"></label><label>Sesgo calibrado s <input id="bias" type="number" step="any" value="3"></label><label>Umbral U <input id="threshold" type="number" step="any" value="60"></label><label>Tolerancia <input id="tolerance" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div><p class="hint">El sesgo proviene de una calibración independiente. El caso mal condicionado usa tiempos de medición muy próximos; no representa una avería física.</p><button id="run" class="button dark">Ejecutar simulación <span>↗</span></button><p id="error" class="error" role="alert"></p></div><div id="output" class="panel output" tabindex="-1"><div class="paneltitle"><span>02 / RESULTADOS</span><span>MODELO CUADRÁTICO</span></div><p id="output-status" class="output-status" role="status">Preparando resultados…</p><div class="metrics"><div><small>TIEMPO AL UMBRAL</small><strong id="crossing">—</strong><span>meses</span></div><div><small>ÍNDICE INICIAL</small><strong id="initial">—</strong><span>puntos</span></div><div><small>CONDICIÓN κ₂(A)</small><strong id="condition">—</strong><span>sensibilidad del sistema</span></div></div><svg id="chart" viewBox="0 0 600 220" role="img" aria-label="Gráfica del índice de deterioro y el umbral"></svg><div class="legend"><span>● Índice estimado</span><span>┄ Umbral de inspección</span></div><p id="explanation" class="result-text" aria-live="polite"></p></div></div><div class="panel results"><div class="paneltitle"><span>03 / COMPARACIÓN NUMÉRICA</span><span>REFERENCIA: SOLUCIÓN DIRECTA DE LAS OBSERVACIONES</span></div><div class="table-wrap"><table><thead><tr><th>MÉTODO</th><th>ESTADO</th><th>ITERACIONES</th><th>RESIDUO ‖Ax−b‖₂</th><th>ERROR ABS. ‖x−x*‖₂</th><th>ERROR RELATIVO</th><th>ERROR %</th></tr></thead><tbody id="method-results"></tbody></table></div><p class="hint">Límite: 1.000 iteraciones. Los métodos iterativos se detienen por residuo absoluto; el error se compara con la referencia. La matriz de ecuaciones normales puede amplificar el condicionamiento.</p></div><div class="panel results"><div class="paneltitle"><span>04 / PARÁMETROS ESTIMADOS</span><span>COMPARACIÓN CON LA REFERENCIA</span></div><p class="hint">La referencia resuelve directamente las cuatro observaciones. Un método que no converge puede producir valores no finitos.</p><div class="table-wrap"><table><thead><tr><th>MÉTODO</th><th>D₀</th><th>α</th><th>β</th><th>SESGO s</th></tr></thead><tbody id="parameter-results"></tbody></table></div></div><div class="panel results"><div class="paneltitle"><span>05 / EVOLUCIÓN POR ITERACIÓN</span><span>APROXIMACIONES Y ERRORES</span></div><p class="hint">Abre cada método para comparar su evolución. Se muestran todas las iteraciones con valores finitos. LU es un método directo y no genera iteraciones.</p><div id="iteration-results"></div></div><div class="panel results"><div class="paneltitle"><span>06 / ESCENARIOS DE REFERENCIA</span><span>DATOS PREDEFINIDOS</span></div><p class="hint">Esta comparación usa los valores predeterminados de cada escenario. El simulador de arriba muestra tus entradas actuales.</p><div class="table-wrap"><table><thead><tr><th>ESCENARIO</th><th>ÍNDICE INICIAL</th><th>α</th><th>β</th><th>UMBRAL</th><th>TIEMPO (MESES)</th><th>κ₂(A)</th></tr></thead><tbody id="scenario-results"></tbody></table></div></div><div class="panel account"><div><div class="eyebrow">HISTORIAL PERSONAL</div><h3>Guarda tus experimentos.</h3><p>Inicia sesión para recuperar tus parámetros y repetir una simulación.</p></div><div><div class="fields"><label>Correo <input id="email" type="email" autocomplete="email"></label><label>Contraseña <input id="password" type="password" autocomplete="current-password"></label></div><div class="actions"><button id="signin">Entrar</button><button id="signup">Crear cuenta</button><button id="signout">Salir</button><button id="save">Guardar simulación</button><button id="history">Ver historial</button></div><p id="account-message" role="status" class="hint"></p><ul id="history-list"></ul></div></div></section><section id="interpretacion" class="section split conclusion"><div><div class="eyebrow">UNA LECTURA RESPONSABLE <span>/ 04</span></div><h2>El resultado no es<br><em>el final de la pregunta.</em></h2></div><div class="prose"><h3>Conclusión numérica</h3><p>Compara residuos, errores y convergencia. El mal condicionamiento puede hacer que cambios pequeños en los datos alteren mucho los parámetros; la falta de convergencia de un algoritmo es un fenómeno distinto.</p><h3>Conclusión del problema</h3><p>La curva estima cuándo se alcanza un umbral elegido bajo los supuestos del modelo. Es una señal educativa para planificar una inspección, no una predicción de falla ni una recomendación operativa.</p></div></section></div></main><footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p><span>HECHO PARA PREGUNTAR MEJOR ↗</span></footer><script type="module" src="app.js"></script></body></html>
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101112">
+    <title>SIMTELE / RISK — Métodos numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="validacion.css"></head>
+
+<body>
+    <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
+        <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
+        <a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a>
+    </header>
+    <p id="app-load-status" role="alert" hidden></p><main>
+        <div class="shell">
+            <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
+            <section id="deterioro" class="section article">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">CASO DE ESTUDIO <span>/ 02</span></div>
+                        <h2>El tiempo también<br><em>deja una huella.</em></h2>
+                    </div>
+                    <p>RODAMIENTO HIPOTÉTICO<br>MODELO EDUCATIVO · V1.0</p>
+                </div>
+                <div class="article-grid">
+                    <aside>
+                        <div class="eyebrow">EN ESTA SECCIÓN</div><a href="#modelo">01 &nbsp; El modelo</a><a
+                            href="#notacion">02 &nbsp; Notación</a><a href="#simulador">03 &nbsp; Simulador</a><a
+                            href="#interpretacion">04 &nbsp; Interpretación</a>
+                    </aside>
+                    <div class="prose article-body">
+                        <p class="lead">¿Cuándo alcanzaría un rodamiento un nivel de deterioro que sugiera una
+                            inspección?</p>
+                        <p>Imaginemos un indicador sintético que resume su estado. No medimos el desgaste real:
+                            construimos una trayectoria hipotética para estudiar cómo las observaciones, el sesgo y los
+                            métodos afectan nuestra estimación.</p>
+                        <h3 id="modelo">01 &nbsp; Del problema al modelo</h3>
+                        <p>Representamos el índice con una curva cuadrática. La lectura observada incluye un sesgo
+                            constante del sensor:</p>
+                        <div class="formula">D(t) = D₀ + αt + βt² <span>y(t) = D(t) + s</span></div>
+                        <p>El sesgo <b>s</b> se obtiene mediante una <b>calibración independiente</b>. Sin ella, las
+                            lecturas solo permiten observar la suma D₀ + s: no es posible distinguir ambos valores de
+                            forma única.</p>
+                        <p>Con lecturas en los meses 0, 1 y 2 y una medida independiente del sesgo, construimos cuatro
+                            ecuaciones. Sus ecuaciones normales forman un sistema simétrico definido positivo.
+                            Comparamos Jacobi, Gauss-Seidel, LU y gradiente conjugado con la solución de referencia de
+                            las cuatro observaciones.</p>
+                        <div class="callout"><b>¿Qué nos dicen los errores?</b><br>El residuo mide cuánto incumple la
+                            solución el sistema. El error frente a la referencia mide la diferencia entre soluciones. Un
+                            residuo pequeño no siempre implica un error pequeño si el problema está mal condicionado.
+                        </div>
+                        <h3 id="notacion">02 &nbsp; El lenguaje del modelo</h3>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>SÍMBOLO</th>
+                                        <th>INTERPRETACIÓN</th>
+                                        <th>UNIDAD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>D(t)</td>
+                                        <td>Índice hipotético de deterioro</td>
+                                        <td>puntos</td>
+                                    </tr>
+                                    <tr>
+                                        <td>D₀</td>
+                                        <td>Índice inicial tras la inspección</td>
+                                        <td>puntos</td>
+                                    </tr>
+                                    <tr>
+                                        <td>α</td>
+                                        <td>Ritmo inicial de crecimiento</td>
+                                        <td>puntos / mes</td>
+                                    </tr>
+                                    <tr>
+                                        <td>β</td>
+                                        <td>Cambio cuadrático del deterioro</td>
+                                        <td>puntos / mes²</td>
+                                    </tr>
+                                    <tr>
+                                        <td>s</td>
+                                        <td>Sesgo constante medido independientemente</td>
+                                        <td>puntos</td>
+                                    </tr>
+                                    <tr>
+                                        <td>t</td>
+                                        <td>Tiempo desde la inspección</td>
+                                        <td>meses</td>
+                                    </tr>
+                                    <tr>
+                                        <td>U</td>
+                                        <td>Umbral hipotético de inspección</td>
+                                        <td>puntos</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="simulador" class="section simulator">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">LABORATORIO INTERACTIVO <span>/ 03</span></div>
+                        <h2>Prueba una <em>hipótesis.</em></h2>
+                    </div>
+                    <p>Cambia las observaciones y mira cómo responde el modelo.</p>
+                </div>
+                <div class="simgrid">
+                    <div class="panel">
+                        <div class="paneltitle"><span>01 / ENTRADAS</span><span>DATOS SINTÉTICOS</span></div><label
+                            for="scenario">Escenario</label><select id="scenario">
+                            <option value="normal">Normal</option>
+                            <option value="estres">Estrés</option>
+                            <option value="mal">Mal condicionado</option>
+                        </select>
+                        <p class="hint" id="scenario-desc"></p>
+                        <div class="fields"><label>Primera lectura (t = 0) <input id="y0" type="number" step="any"
+                                    value="13"></label><label>Segunda lectura <input id="y1" type="number" step="any"
+                                    value="15.5"></label><label>Tercera lectura <input id="y2" type="number" step="any"
+                                    value="19"></label><label>Sesgo calibrado s <input id="bias" type="number"
+                                    step="any" value="3"></label><label>Umbral U <input id="threshold" type="number"
+                                    step="any" value="60"></label><label>Tolerancia <input id="tolerance" type="number"
+                                    min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div>
+                        <p class="hint">El sesgo proviene de una calibración independiente. El caso mal condicionado usa
+                            tiempos de medición muy próximos; no representa una avería física.</p><button type="button" class="restore-example" id="restore-deterioro">Restaurar ejemplo inicial</button><button id="run"
+                            class="button dark">Ejecutar simulación <span>↗</span></button>
+                        <p id="error" class="error" role="alert"></p>
+                    </div>
+                    <div id="output" class="panel output" tabindex="-1">
+                        <div class="paneltitle"><span>02 / RESULTADOS</span><span>MODELO CUADRÁTICO</span></div>
+                        <p id="output-status" class="output-status" role="status">Preparando resultados…</p>
+                        <div class="metrics">
+                            <div><small>TIEMPO AL UMBRAL</small><strong id="crossing">—</strong><span>meses</span></div>
+                            <div><small>ÍNDICE INICIAL</small><strong id="initial">—</strong><span>puntos</span></div>
+                            <div><small>CONDICIÓN κ₂(A)</small><strong id="condition">—</strong><span>sensibilidad del
+                                    sistema</span></div>
+                        </div><div class="demo-scene" id="demo-deterioro"></div><svg id="chart" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica del índice de deterioro y el umbral"></svg>
+                        <div class="legend"><span>● Índice estimado</span><span>┄ Umbral de inspección</span></div>
+                        <p id="explanation" class="result-text" aria-live="polite"></p>
+                        <svg id="chart2" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de convergencia de residuos"></svg>
+                        <div class="legend"><span>● Jacobi</span><span>● Gauss-Seidel</span><span>● Gradiente conjugado</span></div>
+                        <p class="hint">Este gráfico muestra la evolución del residuo ‖Ax−b‖₂ en escala logarítmica para los métodos iterativos. Jacobi (rojo) diverge por desbordamiento; Gauss-Seidel (azul) converge lentamente; Gradiente conjugado (verde) converge en 4 pasos. Consulta la tabla 03 (COMPARACIÓN NUMÉRICA) para ver los valores exactos de residuo, error absoluto, relativo y porcentual de cada método.</p>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>GUARDAR Y CONSULTAR</span><span>HISTORIAL PERSONAL</span></div>
+                    <div class="actions"><button id="save" class="button dark">Guardar simulación <span>↗</span></button>
+                        <button id="history" class="button dark">Ver historial <span>↗</span></button></div>
+                    <p id="save-message" data-msg role="status" class="hint"></p>
+                    <ul id="history-list"></ul>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>03 / COMPARACIÓN NUMÉRICA</span><span>REFERENCIA: SOLUCIÓN DIRECTA DE
+                            LAS OBSERVACIONES</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>ESTADO</th>
+                                    <th>ITERACIONES</th>
+                                    <th>RESIDUO ‖Ax−b‖₂</th>
+                                    <th>ERROR ABS. ‖x−x*‖₂</th>
+                                    <th>ERROR RELATIVO</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="method-results"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Límite: 1.000 iteraciones. Los métodos iterativos se detienen por residuo absoluto;
+                        el error se compara con la referencia. La matriz de ecuaciones normales puede amplificar el
+                        condicionamiento.</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>04 / PARÁMETROS ESTIMADOS</span><span>COMPARACIÓN CON LA
+                            REFERENCIA</span></div>
+                    <p class="hint">La referencia resuelve directamente las cuatro observaciones. Un método que no
+                        converge puede producir valores no finitos.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>D₀</th>
+                                    <th>α</th>
+                                    <th>β</th>
+                                    <th>SESGO s</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parameter-results"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>05 / EVOLUCIÓN POR ITERACIÓN</span><span>APROXIMACIONES Y
+                            ERRORES</span></div>
+                    <p class="hint">Abre cada método para comparar su evolución. Se muestran todas las iteraciones con
+                        valores finitos. LU es un método directo y no genera iteraciones.</p>
+                    <div id="iteration-results"></div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>06 / ESCENARIOS DE REFERENCIA</span><span>DATOS PREDEFINIDOS</span>
+                    </div>
+                    <p class="hint">Esta comparación usa los valores predeterminados de cada escenario. El simulador de
+                        arriba muestra tus entradas actuales.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ESCENARIO</th>
+                                    <th>ÍNDICE INICIAL</th>
+                                    <th>α</th>
+                                    <th>β</th>
+                                    <th>UMBRAL</th>
+                                    <th>TIEMPO (MESES)</th>
+                                    <th>κ₂(A)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scenario-results"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>07 / SENSIBILIDAD</span><span>PERTURBACIÓN EN LA ÚLTIMA LECTURA</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PARÁMETRO</th>
+                                    <th>VALOR ORIGINAL</th>
+                                    <th>VALOR PERTURBADO</th>
+                                    <th>CAMBIO EN β</th>
+                                    <th>FACTOR DE AMPLIFICACIÓN</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensitivity-det"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Se perturba la última lectura en +0,0001 puntos y se mide el cambio en el coeficiente cuadrático β. El factor de amplificación compara mal condicionado vs normal.</p>
+                </div>
+                <div class="panel account" id="cuenta">
+                    <div>
+                        <div class="eyebrow">HISTORIAL PERSONAL</div>
+                        <h3>Guarda tus experimentos.</h3>
+                        <p>Inicia sesión para recuperar tus parámetros y repetir una simulación.</p>
+                    </div>
+                    <div>
+                        <div class="fields"><label>Correo <input id="email" type="email"
+                                    autocomplete="email"></label><label>Contraseña <input id="password" type="password"
+                                    autocomplete="current-password"></label></div>
+                        <div class="actions"><button id="signin">Entrar</button><button id="signup">Crear
+                                cuenta</button><button id="signout">Salir</button></div>
+                        <p id="account-message" data-msg role="status" class="hint"></p>
+                        <ul id="account-history-list"></ul>
+                    </div>
+                </div>
+            </section>
+            <section id="interpretacion" class="section split conclusion">
+                <div>
+                    <div class="eyebrow">UNA LECTURA RESPONSABLE <span>/ 04</span></div>
+                    <h2>El resultado no es<br><em>el final de la pregunta.</em></h2>
+                </div>
+                <div class="prose">
+                    <h3>Conclusión numérica</h3>
+                    <p>Compara residuos, errores y convergencia. El mal condicionamiento puede hacer que cambios
+                        pequeños en los datos alteren mucho los parámetros; la falta de convergencia de un algoritmo es
+                        un fenómeno distinto.</p>
+                    <h3>Conclusión del problema</h3>
+                    <p>La curva estima cuándo se alcanza un umbral elegido bajo los supuestos del modelo. Es una señal
+                        educativa para planificar una inspección, no una predicción de falla ni una recomendación
+                        operativa.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
+        <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
+    </footer>
+    <script defer src="assets/app.bundle.js"></script>
+</body>
+
+</html>

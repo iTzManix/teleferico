@@ -1,1 +1,276 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101112"><title>SIMTELE / RISK — Métodos numéricos</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"></head><body><header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav><a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a></header><main><div class="shell"><div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div><section class="section module-intro"><div class="eyebrow">03 / OSCILACIONES / EN DESARROLLO</div><h1>Oscilaciones por viento</h1><p class="lead">¿Cómo responde una cabina a una fuerza externa?</p><div class="split"><div class="prose"><h3>El planteamiento</h3><p>El modelo propuesto representa una cabina como un sistema de masa, rigidez y amortiguamiento sometido a una fuerza idealizada.</p><p><b>Métodos previstos:</b> EDO e integración numérica.</p></div><div class="callout"><b>Escenarios propuestos</b><p>Normal: fuerza y amortiguamiento nominales.</p><p>Estrés: mayor fuerza externa o menor amortiguamiento.</p><p>Mal condicionado: un subexperimento de sensibilidad pendiente de definición y verificación.</p></div></div><p class="module-note">Este módulo aún no tiene simulador ni resultados implementados.</p></section></div></main><footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/ RISK</small></a><p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p><span>HECHO PARA PREGUNTAR MEJOR ↗</span></footer></body></html>
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101112">
+    <title>SIMTELE / RISK — Métodos numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="validacion.css"></head>
+
+<body>
+    <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
+        <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
+        <a class="navcta" href="viento.html#simulador">Abrir simulador <span>↗</span></a>
+
+    </header>
+    <p id="app-load-status" role="alert" hidden></p><main>
+        <div class="shell">
+            <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
+            <section id="viento" class="section article">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">CASO DE ESTUDIO <span>/ 03</span></div>
+                        <h2>Oscilaciones por viento<br><em>respuesta de la cabina.</em></h2>
+                    </div>
+                    <p>DINÁMICA HIPOTÉTICA<br>MODELO EDUCATIVO · V1.0</p>
+                </div>
+                <div class="article-grid">
+                    <aside>
+                        <div class="eyebrow">EN ESTA SECCIÓN</div><a href="#modelo">01 &nbsp; El modelo</a><a
+                            href="#notacion">02 &nbsp; Notación</a><a href="#simulador">03 &nbsp; Simulador</a><a
+                            href="#interpretacion">04 &nbsp; Interpretación</a>
+                    </aside>
+                    <div class="prose article-body">
+                        <p class="lead">¿Cómo se modifica la oscilación ante cambios de fuerza externa,
+                            amortiguamiento y rigidez?</p>
+                        <p>El modelo representa la cabina como un sistema masa-rigidez-amortiguamiento sometido a una
+                            fuerza idealizada:</p>
+                        <div class="formula">x′ = v <span>v′ = (F(t) − c·v − k·x) / m</span></div>
+                        <p>Se integra con <b>RK2 y RK4</b>, se acumula el movimiento con <b>trapecio, Simpson y Romberg</b>
+                            sobre |x(t)| y x(t)², y se estudia la sensibilidad ante parámetros mal condicionados.</p>
+                        <div class="callout"><b>¿Qué nos dicen los errores?</b><br>El error absoluto y relativo miden la
+                            diferencia frente a la referencia numérica (RK4 con paso fino). Un residuo pequeño no
+                            garantiza error pequeño si el sistema está mal condicionado.</div>
+                        <h3 id="notacion">02 &nbsp; El lenguaje del modelo</h3>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>SÍMBOLO</th>
+                                        <th>INTERPRETACIÓN</th>
+                                        <th>UNIDAD</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>x(t)</td>
+                                        <td>Desplazamiento lateral</td>
+                                        <td>m</td>
+                                    </tr>
+                                    <tr>
+                                        <td>v(t)</td>
+                                        <td>Velocidad instantánea</td>
+                                        <td>m/s</td>
+                                    </tr>
+                                    <tr>
+                                        <td>m</td>
+                                        <td>Masa de la cabina</td>
+                                        <td>kg</td>
+                                    </tr>
+                                    <tr>
+                                        <td>c</td>
+                                        <td>Coeficiente de amortiguamiento</td>
+                                        <td>N·s/m</td>
+                                    </tr>
+                                    <tr>
+                                        <td>k</td>
+                                        <td>Rigidez del sistema</td>
+                                        <td>N/m</td>
+                                    </tr>
+                                    <tr>
+                                        <td>F(t)</td>
+                                        <td>Fuerza externa del viento</td>
+                                        <td>N</td>
+                                    </tr>
+                                    <tr>
+                                        <td>t</td>
+                                        <td>Tiempo transcurrido</td>
+                                        <td>s</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section id="simulador" class="section simulator">
+                <div class="section-top">
+                    <div>
+                        <div class="eyebrow">LABORATORIO INTERACTIVO <span>/ 03</span></div>
+                        <h2>Prueba una <em>hipótesis.</em></h2>
+                    </div>
+                    <p>Cambia masa, amortiguamiento, rigidez y fuerza. Mira cómo responde el modelo.</p>
+                </div>
+                <div class="simgrid">
+                    <div class="panel">
+                        <div class="paneltitle"><span>01 / ENTRADAS</span><span>DATOS SINTÉTICOS</span></div><label
+                            for="scenario-vin">Escenario</label><select id="scenario-vin">
+                            <option value="normal">Normal</option>
+                            <option value="estres">Estrés</option>
+                            <option value="mal">Mal condicionado</option>
+                        </select>
+                        <p class="hint" id="scenario-vin-desc"></p>
+                        <div class="fields"><label>Masa m (kg) <input id="m" type="number" step="any" value="500"></label><label>Amortiguamiento c (N·s/m) <input id="c" type="number" step="any" value="50"></label><label>Rigidez k (N/m) <input id="k" type="number" step="any" value="200"></label><label>Fuerza F (N) <input id="F" type="number" step="any" value="100"></label><label>Desplazamiento inicial x₀ (m) <input id="x0" type="number" step="any" value="0"></label><label>Velocidad inicial v₀ (m/s) <input id="v0-vin" type="number" step="any" value="0"></label><label>Tolerancia <input id="tol-vin" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label><label>Paso h (s) <input id="h-vin" type="number" step="any" value="0.4"></label></div>
+                        <p class="hint">En MAL se identifica amortiguamiento y rigidez con observaciones casi dependientes; la dinámica se mantiene igual a Normal.</p><button type="button" class="restore-example" id="restore-viento">Restaurar ejemplo inicial</button><button id="run-vin" class="button dark">Ejecutar simulación <span>↗</span></button>
+                        <p id="error-vin" class="error" role="alert"></p>
+                    </div>
+                    <div id="output-vin" class="panel output" tabindex="-1">
+                        <div class="paneltitle"><span>02 / RESULTADOS</span><span>MODELO DINÁMICO</span></div>
+                        <p id="output-status-vin" class="output-status" role="status">Preparando resultados…</p>
+                        <div class="metrics">
+                            <div><small>AMPLITUD MÁXIMA</small><strong id="x-max">—</strong><span>m</span></div>
+                            <div><small>TIEMPO FIN</small><strong id="t-end">—</strong><span>s</span></div>
+                            <div><small>REFERENCIA |x|</small><strong id="x-ref">—</strong><span>m</span></div>
+                        </div><div class="demo-scene" id="demo-viento"></div><svg id="chart-vin" viewBox="0 0 600 220" role="img"
+                            aria-label="Desplazamiento y referencia analítica en metros"></svg>
+                        <div class="legend"><span>Trayectoria RK4</span><span>Referencia analítica</span></div>
+                        <p id="explanation-vin" class="result-text" aria-live="polite"></p>
+                        <svg id="chart2-vin" viewBox="0 0 600 220" role="img"
+                            aria-label="Gráfica de diferencia RK2 vs RK4"></svg>
+                        <div class="legend"><span>● |x_RK4 − x_RK2|</span></div>
+                        <p class="hint">Este gráfico muestra la diferencia absoluta entre la solución RK2 y RK4 para el desplazamiento x(t) a lo largo del tiempo. Si la diferencia crece, RK2 es menos preciso que RK4 para el paso seleccionado. Consulta la tabla 03 (COMPARACIÓN NUMÉRICA) para ver los valores exactos de amplitud, error absoluto, relativo y porcentual de cada método.</p>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>GUARDAR Y CONSULTAR</span><span>HISTORIAL PERSONAL</span></div>
+                    <div class="actions"><button id="save" class="button dark">Guardar simulación <span>↗</span></button><button id="history" class="button dark">Ver historial <span>↗</span></button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                    <ul id="history-list"></ul>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>03 / COMPARACIÓN NUMÉRICA</span><span>REFERENCIA: RK4 PASO FINO</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>ESTADO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>RESIDUO</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="method-results-vin"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Referencia: RK4 con paso h/10. La matriz de ecuaciones puede amplificar el condicionamiento.</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>04 / INTEGRACIÓN NUMÉRICA</span><span>Acumulación de |x(t)| y x(t)²</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>MÉTODO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>RESIDUO</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="integ-results-vin"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>05 / EVOLUCIÓN POR ITERACIÓN</span><span>APROXIMACIONES Y ERRORES</span></div>
+                    <p class="hint">Abre cada método para comparar su evolución. Se muestran todas las iteraciones con valores finitos.</p>
+                    <div id="iteration-results-vin"></div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>06 / ESCENARIOS DE REFERENCIA</span><span>DATOS PREDEFINIDOS</span></div>
+                    <p class="hint">Esta comparación usa los valores predeterminados de cada escenario. El simulador de arriba muestra tus entradas actuales.</p>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ESCENARIO</th>
+                                    <th>MÉTODO</th>
+                                    <th>VALOR</th>
+                                    <th>MAGNITUD</th>
+                                    <th>ERROR ABS.</th>
+                                    <th>ERROR REL.</th>
+                                    <th>ERROR %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scenario-results-vin"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>07 / SENSIBILIDAD</span><span>PERTURBACIÓN EN EL AMORTIGUAMIENTO c</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>PARÁMETRO</th>
+                                    <th>VALOR ORIGINAL</th>
+                                    <th>VALOR PERTURBADO</th>
+                                    <th>CAMBIO EN AMPLITUD (m)</th>
+                                    <th>CAMBIO EN ∫|x|</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sensitivity-vin"></tbody>
+                        </table>
+                    </div>
+                    <p class="hint">Se perturba el amortiguamiento c en +0,0001 y se mide el cambio en amplitud máxima e integral.</p>
+                </div>
+                <div class="panel results">
+                    <div class="paneltitle"><span>08 / CONCLUSIONES</span><span>INTERPRETACIÓN</span></div>
+                    <div id="conclusion-vin"></div>
+                </div>
+            </section>
+            <div class="panel account" id="cuenta">
+                <div>
+                    <div class="eyebrow">HISTORIAL PERSONAL</div>
+                    <h3>Guarda tus experimentos.</h3>
+                    <p>Inicia sesión para recuperar tus parámetros y repetir una simulación.</p>
+                </div>
+                <div>
+                    <div class="fields"><label>Correo <input id="email" type="email"
+                                autocomplete="email"></label><label>Contraseña <input id="password" type="password"
+                                autocomplete="current-password"></label></div>
+                    <div class="actions"><button id="signin">Entrar</button><button id="signup">Crear
+                            cuenta</button><button id="signout">Salir</button></div>
+                    <p id="account-message" role="status" class="hint"></p>
+                </div>
+            </div>
+            <section id="interpretacion" class="section split conclusion">
+                <div>
+                    <div class="eyebrow">UNA LECTURA RESPONSABLE <span>/ 04</span></div>
+                    <h2>El resultado no es<br><em>el final de la pregunta.</em></h2>
+                </div>
+                <div class="prose">
+                    <h3>Conclusión numérica</h3>
+                    <p>Compara RK2, RK4 y los métodos de integración frente a la referencia de paso fino.</p>
+                    <h3>Conclusión del problema</h3>
+                    <p>La curva estima el movimiento de la cabina bajo los supuestos del modelo. Es una señal educativa
+                        para el análisis de vibraciones, no una predicción de operación real.</p>
+                </div>
+            </section>
+        </div>
+    </main>
+    <footer><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
+                RISK</small></a>
+        <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
+        <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
+    </footer>
+    <script defer src="assets/viento-app.bundle.js"></script>
+</body>
+
+</html>
