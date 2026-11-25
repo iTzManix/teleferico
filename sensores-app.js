@@ -1,3 +1,8 @@
+import { mountCloudHistory } from './cloud-history.js';
+import { renderDemo } from './demo-scenes.js';
+import { PRESETS, experiment } from './experiments.js';
+import { historyTable } from './render.js';
+import { mountLocalHistory } from './local-history-ui.js';
 import { simulateSensores } from './math.js';
 import { database } from './db.js';
 
@@ -5,20 +10,7 @@ const $ = id => document.getElementById(id);
 let last = null;
 const fmt = n => Number.isFinite(n) ? (Math.abs(n) > 1e5 || Math.abs(n) < .001 && n !== 0 ? n.toExponential(2) : n.toFixed(3)) : '—';
 
-const presets = {
-  normal: {
-    values: ['sin', 7, 0, 6.283, 0, 2, 0.5, .000001],
-    desc: 'Nodos regulares y datos consistentes.'
-  },
-  estres: {
-    values: ['sin', 7, 0, 6.283, 0.1, 4, 0.3, .000001],
-    desc: 'Más puntos faltantes o mayor ruido.'
-  },
-  mal: {
-    values: ['sin', 10, 0, 6.283, 0, 3, 0.5, .000001],
-    desc: 'Nodos desfavorables (fenómeno de Runge).'
-  }
-};
+const presets = PRESETS.sensores;
 
 function absError(approx, exact) {
   return Math.abs(approx - exact);
@@ -100,7 +92,7 @@ function drawChart2Sen(res) {
   const height = 220;
   const pad = 50;
   const metodos = res.resultados;
-  const maxErr = Math.max(...metodos.map(m => m.valor || 0), 1);
+  const maxErr = Math.max(...metodos.map(m => m.valor || 0), 1e-16);
 
   let bars = '';
   let labels = '';
@@ -129,21 +121,17 @@ function renderResultados(res) {
   $('err-spl').textContent = fmt(errorOcultos.spline);
   $('output-status-sen').textContent = 'Simulación actualizada · revisa la gráfica y la comparación de métodos.';
 
-  $('method-results-sen').innerHTML = resultados.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió'}</td><td>${fmt(r.valor)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td><td>${fmt(r.errorConocidos)}</td><td>${fmtError(r.residuo)}</td></tr>`).join('');
+  $('method-results-sen').innerHTML = resultados.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Calculado / criterio satisfecho' : 'No convergió'}</td><td>${fmt(r.valor)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td><td>${fmt(r.errorConocidos)}</td><td>${fmtError(r.residuo)}</td></tr>`).join('');
 
   if (raiz) {
-    $('root-results-sen').innerHTML = `<tr><td>Bisección (Lagrange)</td><td>${fmt(raiz.biseccion)}</td><td>${raiz.biseccion !== null ? 'Sí' : 'No'}</td></tr>`;
+    $('root-results-sen').innerHTML = `<tr><td>Bisección (Lagrange)</td><td>${fmt(raiz.biseccion?.root)}</td><td>${raiz.biseccion?.converged ? 'Sí' : 'No'}</td></tr>`;
   } else {
     $('root-results-sen').innerHTML = `<tr><td>—</td><td>—</td><td>—</td></tr>`;
   }
 
-  $('conclusion-sen').innerHTML = `
-    <h3>Conclusión numérica</h3>
-    <p>El spline cúbico suele ser el más estable en puntos ocultados. Lagrange y Newton pueden oscilar con nodos desfavorables o pocos datos.</p>
-    <h3>Conclusión del problema</h3>
-    <p>Con ${res.entradas.nNodos} nodos en [${fmt(res.entradas.a)}, ${fmt(res.entradas.b)}] y señal ${res.entradas.funcion}, el error medio de predicción en puntos ocultados es ≈${fmt(Math.min(errorOcultos.lagrange, errorOcultos.newton, errorOcultos.spline))}. Nodos mal condicionados degradan la reconstrucción; esto es sensibilidad matemática, no falla del sensor.</p>
-  `;
-
+  const conclusions = experiment('sensores', res.scenario, res.entradas).conclusions;
+  $('conclusion-sen').innerHTML = `<h3>Conclusión numérica</h3><p>${conclusions.numerical}</p><h3>Conclusión del problema</h3><p>${conclusions.problem}</p>`;
+  renderDemo('sensores', res, res.entradas);
   drawChartSen(res);
   drawChart2Sen(res);
   renderIteracionSen(res);
@@ -156,17 +144,8 @@ function renderSensitivitySen(res) {
   const { entradas } = res;
   const epsilon = 0.0001;
 
-  // Perturbar el valor del primer nodo
-  const nodosOrig = res.nodos;
-  const valoresPert = [...res.valores];
-  valoresPert[0] += epsilon;
-
-  const vPert = { ...entradas, scenario: entradas.scenario };
-  // Recompute with perturbed values by calling simulateSensores with a modified approach
-  // Since simulateSensores generates its own nodes/values, we need to simulate the perturbation differently
-  // We'll simulate with ruido added to approximate the perturbation effect
   const rOrig = simulateSensores(entradas);
-  const rPert = simulateSensores({ ...entradas, ruido: epsilon });
+  const rPert = simulateSensores({ ...entradas, perturbation: epsilon });
 
   const cambioLag = rPert.errorOcultos.lagrange - rOrig.errorOcultos.lagrange;
   const cambioNew = rPert.errorOcultos.newton - rOrig.errorOcultos.newton;
@@ -194,26 +173,7 @@ function renderSensitivitySen(res) {
   `;
 }
 
-function renderIteracionSen(res) {
-  const filas = res.resultados.filter(r => r.name !== 'LU (pivoteo)').map(r => {
-    const detalle = r.history ? r.history.map(h => `
-      <tr>
-        <td>${h.iteration}</td>
-        ${h.x ? h.x.map(value => `<td>${fmt(value)}</td>`).join('') : ''}
-        <td>${fmt(h.residual)}</td>
-        <td>${fmt(h.error)}</td>
-      </tr>
-    `).join('') : '';
-
-    if (detalle) {
-      return `<details><summary>${r.name} · ${r.history.length} iteraciones registradas ${r.converged ? '· convergió' : '· no convergió'}</summary><div class="table-wrap"><table><thead><tr><th>ITERACIÓN</th><th>x</th><th>y</th><th>RESIDUO</th><th>ERROR ABS.</th></tr></thead><tbody>${detalle}</tbody></table></div></details>`;
-    }
-
-    return `<details><summary>${r.name} · Resultado directo (sin iteraciones intermedias) ${r.converged ? '· convergió' : '· no convergió'}</summary><div class="table-wrap"><table><thead><tr><th>MÉTODO</th><th>VALOR</th><th>MAGNITUD</th><th>ERROR ABS.</th><th>ERROR REL.</th><th>ERROR %</th></tr></thead><tbody><tr><td>${r.name}</td><td>${fmt(r.valor)}</td><td>${r.magnitud}</td><td>${fmtError(r.errorConocidos)}</td><td>${fmtError(r.errorOcultos)}</td><td>${fmtError(Math.abs(r.errorOcultos - r.errorConocidos))}</td></tr></tbody></table></div></details>`;
-  }).join('');
-
-  $('iteration-results-sen').innerHTML = filas;
-}
+function renderIteracionSen(res) { $('iteration-results-sen').innerHTML = historyTable(res.resultados); }
 
 function renderEscenariosSen(res) {
   const scenarioNames = { normal: 'Normal', estres: 'Estrés', mal: 'Mal condicionado' };
@@ -243,7 +203,7 @@ function renderEscenariosSen(res) {
 function runSen() {
   try {
     const v = inputsSen();
-    if (!v.nNodos || v.nNodos < 3 || v.b <= v.a || v.tolerance < 1e-10 || v.tolerance > 0.1) {
+    if (!v.nNodos || v.nNodos < 4 || v.b <= v.a || v.tolerance < 1e-10 || v.tolerance > 0.1) {
       throw new Error('Introduce valores válidos: nodos ≥ 3, b > a, tolerancia entre 10⁻¹⁰ y 0,1.');
     }
     $('error-sen').textContent = '';
@@ -285,20 +245,24 @@ $('run-sen').addEventListener('click', () => {
   }
 });
 
-$('scenario-sen').dispatchEvent(new Event('change'));
+const requestedScenario=new URLSearchParams(globalThis.location?.search || '').get('scenario'); if (requestedScenario && presets[requestedScenario]) $('scenario-sen').value=requestedScenario; $('scenario-sen').dispatchEvent(new Event('change'));
 
 // ---------- Auth, guardar y historial (reutilizado de app.js) ----------
 const msg = t => $('account-message').textContent = t;
 async function user() { let db = await database(); let { data, error } = await db.auth.getUser(); if (error) return null; return data.user }
-async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth(); }
+async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth().catch(() => {}); }
 // No hay inputs en el navbar, solo botones que hacen scroll
 $('nav-signin').onclick = () => { document.getElementById('cuenta').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 $('nav-signup').onclick = () => { document.getElementById('cuenta').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 async function updateNavAuth() { let u = await user(); if (u) { $('nav-signout').style.display = ''; $('nav-signin').style.display = 'none'; $('nav-signup').style.display = 'none'; } else { $('nav-signout').style.display = 'none'; $('nav-signin').style.display = ''; $('nav-signup').style.display = ''; } }
-$('nav-signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth(); } catch (e) { msg(e.message) } };
+$('nav-signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth().catch(() => {}); } catch (e) { msg(e.message) } };
 $('signin').onclick = () => auth(false).catch(e => msg(e.message));
 $('signup').onclick = () => auth(true).catch(e => msg(e.message));
-$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth(); } catch (e) { msg(e.message) } };
-$('save').onclick = async () => { try { runSen(); if (!last) return; let u = await user(); if (!u) { msg('Inicia sesión para guardar.'); return } let db = await database(); let { error } = await db.from('simulaciones').insert({ user_id: u.id, caso: 'sensores', escenario: last.entradas.scenario, entradas: last.entradas, resultados: last.resultados }); msg(error ? error.message : 'Simulación guardada.') } catch (e) { msg(e.message) } };
-$('history').onclick = async () => { try { if (!await user()) { msg('Inicia sesión para consultar el historial.'); return } let db = await database(); let { data, error } = await db.from('simulaciones').select('id,caso,escenario,entradas,creado_en').eq('caso', 'sensores').order('creado_en', { ascending: false }).limit(30); if (error) { msg(error.message); return } let list = $('history-list'); list.replaceChildren(); data.forEach(row => { let li = document.createElement('li'), button = document.createElement('button'); button.textContent = `${new Date(row.creado_en).toLocaleString('es-BO')} · ${row.escenario} · Abrir y repetir`; button.onclick = () => { $('scenario-sen').value = row.entradas.scenario; $('scenario-sen-desc').textContent = presets[row.entradas.scenario].desc; $('funcion-sen').value = row.entradas.funcion; $('n-nodos').value = row.entradas.nNodos; $('sen-a').value = row.entradas.a; $('sen-b').value = row.entradas.b; $('sen-ruido').value = row.entradas.ruido; $('sen-ocultar').value = row.entradas.puntosOcultar; $('sen-umbral').value = row.entradas.umbral; $('tol-sen').value = row.entradas.tolerance; runSen(); msg('Simulación recuperada y repetida con el modelo actual.') }; li.append(button); list.append(li) }); msg(data.length ? `${data.length} simulaciones encontradas.` : 'Aún no hay simulaciones guardadas.') } catch (e) { msg(e.message) } };
-updateNavAuth();
+$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth().catch(() => {}); } catch (e) { msg(e.message) } };
+updateNavAuth().catch(() => {});
+
+
+mountLocalHistory('sensores', inputsSen, v => { $('scenario-sen').value=v.scenario; Object.entries({"funcion": "funcion-sen", "nNodos": "n-nodos", "a": "sen-a", "b": "sen-b", "ruido": "sen-ruido", "puntosOcultar": "sen-ocultar", "umbral": "sen-umbral", "tolerance": "tol-sen"}).forEach(([key,id])=>$(id).value=v[key]); $('scenario-sen-desc').textContent=presets[v.scenario].desc; runSen(); });
+
+$('restore-sensores').onclick = () => { $('scenario-sen').value='normal'; $('scenario-sen').dispatchEvent(new Event('change')); };
+mountCloudHistory('sensores', inputsSen, v => { $('scenario-sen').value=v.scenario; Object.entries({"funcion": "funcion-sen", "nNodos": "n-nodos", "a": "sen-a", "b": "sen-b", "ruido": "sen-ruido", "puntosOcultar": "sen-ocultar", "umbral": "sen-umbral", "tolerance": "tol-sen"}).forEach(([key,id])=>$(id).value=v[key]); $('scenario-sen-desc').textContent=presets[v.scenario].desc; runSen(); });

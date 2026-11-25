@@ -1,9 +1,13 @@
 {
     "name": "simtele-risk",
-    "version": "1.0.0",
+    "version": "3.0.0",
     "private": true,
     "type": "module",
     "scripts": {
-        "test": "node --test"
+        "pretest": "node scripts/build-preview.mjs",
+        "test": "node --test",
+        "build": "node scripts/build-preview.mjs",
+        "start": "node scripts/build-preview.mjs && python -m http.server 8000 --bind 127.0.0.1",
+        "evidence": "node scripts/evidence.mjs"
     }
 }

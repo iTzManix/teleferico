@@ -12,17 +12,17 @@
         href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-</head>
+<link rel="stylesheet" href="validacion.css"></head>
 
 <body>
     <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
                 RISK</small></a>
         <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
-                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
         <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
         <a class="navcta" href="detencion.html#simulador">Abrir simulador <span>↗</span></a>
     </header>
-    <main>
+    <p id="app-load-status" role="alert" hidden></p><main>
         <div class="shell">
             <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
             <section id="detencion" class="section article">
@@ -118,13 +118,12 @@
                         </select>
                         <p class="hint" id="scenario-det-desc"></p>
                         <div class="fields"><label>Velocidad inicial v₀ (m/s) <input id="v0" type="number" step="any"
-                                    value="12"></label><label>Tiempo de reacción tᵣ (s) <input id="tr" type="number"
+                                    value="10"></label><label>Tiempo de reacción tᵣ (s) <input id="tr" type="number"
                                     step="any" value="1"></label><label>Desaceleración a (m/s²) <input id="a"
-                                    type="number" step="any" value="3"></label><label>Tolerancia <input id="tol-det"
+                                    type="number" step="any" value="2"></label><label>Tolerancia <input id="tol-det"
                                     type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label><label>Paso
-                                h (s) <input id="h-det" type="number" step="any" value="0.01"></label></div>
-                        <p class="hint">El escenario mal condicionado usa desaceleración muy pequeña; el tiempo de
-                            detención es muy sensible.</p><button id="run-det" class="button dark">Ejecutar simulación
+                                h (s) <input id="h-det" type="number" step="any" value="0.1"></label></div>
+                        <p class="hint">El caso MAL mantiene la dinámica normal y analiza una identificación sensible del frenado en Validación S3.</p><button type="button" class="restore-example" id="restore-detencion">Restaurar ejemplo inicial</button><button id="run-det" class="button dark">Ejecutar simulación
                             <span>↗</span></button>
                         <p id="error-det" class="error" role="alert"></p>
                     </div>
@@ -135,14 +134,14 @@
                             <div><small>TIEMPO AL CERO</small><strong id="t-cero">—</strong><span>s</span></div>
                             <div><small>DISTANCIA TOTAL</small><strong id="d-total">—</strong><span>m</span></div>
                             <div><small>TIEMPO REFERENCIA</small><strong id="t-ref">—</strong><span>s</span></div>
-                        </div><svg id="chart-det" viewBox="0 0 600 220" role="img"
-                            aria-label="Gráfica de posición y velocidad vs tiempo"></svg>
-                        <div class="legend"><span>● Posición x(t)</span><span>● Velocidad v(t)</span></div>
+                        </div><div class="demo-scene" id="demo-detencion"></div><svg id="chart-det" viewBox="0 0 600 220" role="img"
+                            aria-label="Posición y referencia analítica en metros"></svg>
+                        <div class="legend"><span>Trayectoria RK4</span><span>Referencia analítica</span></div>
                         <p id="explanation-det" class="result-text" aria-live="polite"></p>
                         <svg id="chart2-det" viewBox="0 0 600 220" role="img"
                             aria-label="Gráfica de error absoluto por método"></svg>
                         <div class="legend"><span>● Error por método</span></div>
-                        <p class="hint">Este gráfico muestra barras del error absoluto de cada método (RK2, RK4, Trapecio, Simpson, Romberg, Bisección, Newton, Secante) respecto a la referencia analítica. Los colores indican la familia: verde para EDO, azul para integración, rojo para raíces. Consulta la tabla 03 (COMPARACIÓN NUMÉRICA) para ver los valores exactos de error absoluto, relativo y porcentual de cada método.</p>
+                        <p class="hint">Error absoluto de distancia (m) para RK2, RK4 y cuadraturas. En frenado uniforme las diferencias pueden ser solo de redondeo. Los errores de tiempo (s) se muestran por separado en la tabla y en Validación S3.</p>
                     </div>
                 </div>
                 <div class="panel results">
@@ -272,7 +271,7 @@
         <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
         <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
     </footer>
-    <script type="module" src="detencion-app.js"></script>
+    <script defer src="assets/detencion-app.bundle.js"></script>
 </body>
 
 </html>

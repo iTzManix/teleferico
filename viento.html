@@ -12,18 +12,18 @@
         href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-</head>
+<link rel="stylesheet" href="validacion.css"></head>
 
 <body>
     <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
                 RISK</small></a>
         <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
-                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
         <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
         <a class="navcta" href="viento.html#simulador">Abrir simulador <span>↗</span></a>
 
     </header>
-    <main>
+    <p id="app-load-status" role="alert" hidden></p><main>
         <div class="shell">
             <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
             <section id="viento" class="section article">
@@ -120,8 +120,8 @@
                             <option value="mal">Mal condicionado</option>
                         </select>
                         <p class="hint" id="scenario-vin-desc"></p>
-                        <div class="fields"><label>Masa m (kg) <input id="m" type="number" step="any" value="1000"></label><label>Amortiguamiento c (N·s/m) <input id="c" type="number" step="any" value="500"></label><label>Rigidez k (N/m) <input id="k" type="number" step="any" value="20000"></label><label>Fuerza F (N) <input id="F" type="number" step="any" value="1000"></label><label>Desplazamiento inicial x₀ (m) <input id="x0" type="number" step="any" value="0"></label><label>Velocidad inicial v₀ (m/s) <input id="v0-vin" type="number" step="any" value="0"></label><label>Tolerancia <input id="tol-vin" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label><label>Paso h (s) <input id="h-vin" type="number" step="any" value="0.01"></label></div>
-                        <p class="hint">El escenario mal condicionado usa amortiguamiento muy bajo; la respuesta es muy sensible.</p><button id="run-vin" class="button dark">Ejecutar simulación <span>↗</span></button>
+                        <div class="fields"><label>Masa m (kg) <input id="m" type="number" step="any" value="500"></label><label>Amortiguamiento c (N·s/m) <input id="c" type="number" step="any" value="50"></label><label>Rigidez k (N/m) <input id="k" type="number" step="any" value="200"></label><label>Fuerza F (N) <input id="F" type="number" step="any" value="100"></label><label>Desplazamiento inicial x₀ (m) <input id="x0" type="number" step="any" value="0"></label><label>Velocidad inicial v₀ (m/s) <input id="v0-vin" type="number" step="any" value="0"></label><label>Tolerancia <input id="tol-vin" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label><label>Paso h (s) <input id="h-vin" type="number" step="any" value="0.4"></label></div>
+                        <p class="hint">En MAL se identifica amortiguamiento y rigidez con observaciones casi dependientes; la dinámica se mantiene igual a Normal.</p><button type="button" class="restore-example" id="restore-viento">Restaurar ejemplo inicial</button><button id="run-vin" class="button dark">Ejecutar simulación <span>↗</span></button>
                         <p id="error-vin" class="error" role="alert"></p>
                     </div>
                     <div id="output-vin" class="panel output" tabindex="-1">
@@ -131,9 +131,9 @@
                             <div><small>AMPLITUD MÁXIMA</small><strong id="x-max">—</strong><span>m</span></div>
                             <div><small>TIEMPO FIN</small><strong id="t-end">—</strong><span>s</span></div>
                             <div><small>REFERENCIA |x|</small><strong id="x-ref">—</strong><span>m</span></div>
-                        </div><svg id="chart-vin" viewBox="0 0 600 220" role="img"
-                            aria-label="Gráfica de desplazamiento y velocidad vs tiempo"></svg>
-                        <div class="legend"><span>● Desplazamiento x(t)</span><span>● Velocidad v(t)</span></div>
+                        </div><div class="demo-scene" id="demo-viento"></div><svg id="chart-vin" viewBox="0 0 600 220" role="img"
+                            aria-label="Desplazamiento y referencia analítica en metros"></svg>
+                        <div class="legend"><span>Trayectoria RK4</span><span>Referencia analítica</span></div>
                         <p id="explanation-vin" class="result-text" aria-live="polite"></p>
                         <svg id="chart2-vin" viewBox="0 0 600 220" role="img"
                             aria-label="Gráfica de diferencia RK2 vs RK4"></svg>
@@ -270,7 +270,7 @@
         <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
         <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
     </footer>
-    <script type="module" src="viento-app.js"></script>
+    <script defer src="assets/viento-app.bundle.js"></script>
 </body>
 
 </html>

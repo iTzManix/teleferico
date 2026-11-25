@@ -1,69 +1,81 @@
 # SIMTELE-RISK
 
-Laboratorio académico de métodos numéricos inspirado en el transporte por cable de La Paz y El Alto. Los modelos, mediciones y escenarios son sintéticos: no describen fallas reales ni establecen recomendaciones de mantenimiento para Mi Teleférico.
+Laboratorio académico de métodos numéricos inspirado en el transporte por cable de La Paz y El Alto. Datos, umbrales y escenarios sintéticos; no diagnostica equipos reales.
 
-- **Aplicación:** [itzmanix.github.io/teleferico](https://itzmanix.github.io/teleferico/)
-- **Informe de la semana 1:** [informe.md](informe.md)
-- **Repositorio:** [github.com/iTzManix/teleferico](https://github.com/iTzManix/teleferico)
+## Revisión local de semana 3
 
-## Casos de estudio
+Esta versión se prepara para revisión local antes de actualizar GitHub Pages.
 
-| Módulo | Problema | Estado |
-|---|---|---|
-| Detención de emergencia | Tiempo y distancia de parada según velocidad, reacción y frenado. | Planteamiento disponible; simulador en desarrollo. |
-| Deterioro mecánico y mantenimiento | Proyección de un índice hipotético de deterioro de un rodamiento. | Simulador, tres escenarios y comparación de sistemas lineales. |
-| Oscilaciones por viento | Respuesta idealizada de una cabina ante fuerzas externas. | Planteamiento disponible; simulador en desarrollo. |
-| Reconstrucción de sensores | Estimación de datos faltantes en una señal conocida. | Planteamiento disponible; simulador en desarrollo. |
-
-La portada enlaza a una página independiente para cada módulo. El informe describe las ecuaciones, supuestos, escenarios y resultados de esta etapa; las demás familias numéricas y la evidencia transversal de error para los cuatro casos siguen pendientes.
-
-## Ejecutar el sitio
-
-Se requiere Python 3 para servir archivos localmente y una conexión a Internet para cargar las fuentes y, cuando se utiliza el historial, el cliente de Supabase.
-
-```bash
-python -m http.server 8000
-```
-
-Abre [http://localhost:8000](http://localhost:8000). No abras `index.html` directamente como archivo local: los módulos JavaScript requieren un servidor HTTP.
-
-Para comprobar los cálculos con Node.js:
-
-```bash
+```sh
 npm test
+npm run evidence
+npm start
 ```
 
-El sitio está publicado desde la raíz de la rama `main` mediante GitHub Pages.
+Puedes abrir `validacion.html` directamente desde el explorador: los paquetes clásicos de `assets/` permiten ejecutar cálculos sin un servidor. También puedes abrir http://127.0.0.1:8000/validacion.html. Node.js ejecuta los tests; Python 3 sirve la aplicación. Los cálculos y el historial local no requieren paquetes npm ni conexión externa. Supabase y las fuentes de las páginas originales sí requieren Internet. Cada simulador incluye un ejemplo inicial, una vista explicativa con control de tiempo y un botón para restaurar sus entradas.
 
-## Modelo de deterioro
+## Qué incluye
 
-El índice se define como `D(t) = D₀ + αt + βt²` y la lectura observada como `y(t) = D(t) + s`. El sesgo constante `s` se obtiene mediante una **calibración independiente del sensor**: sin ella, `D₀` y `s` no pueden distinguirse. Tres lecturas y la calibración definen `Cx = y`; la solución directa de este sistema sirve de referencia. Para comparar métodos se construye `A = CᵀC` y `b = Cᵀy`.
+- Cuatro módulos y tres escenarios por módulo, con entradas centralizadas en `experiments.js`.
+- Pestaña `validacion.html`: matriz 3 × 4, valores de referencia, comparación, tablas completas de iteraciones/refinamiento, gráficos, sensibilidad y dos conclusiones diferenciadas por caso.
+- Conclusión integradora, exportación JSON/CSV e informe imprimible.
+- Historial local normalizado con IndexedDB: guardar, recargar, recuperar los resultados originales y repetir entradas con versión identificada.
+- Esquema SQL del DER propuesto para revisar en un entorno de pruebas.
 
-El simulador aplica Jacobi, Gauss-Seidel, LU con pivoteo y gradiente conjugado a `Ax = b`. Presenta las aproximaciones, iteraciones finitas, residuos, errores y condición de `A`. Los iterativos parten de cero, se detienen con `||b − Ax||₂ ≤ tolerancia` y tienen un límite de 1.000 iteraciones; también se interrumpen ante desbordamiento. Un residuo pequeño no garantiza error pequeño en una matriz mal condicionada. La formación de ecuaciones normales puede aumentar el condicionamiento.
+## Modelos y correcciones
 
-El escenario normal usa mediciones a 0, 1 y 2 meses; estrés usa los mismos tiempos con un deterioro sintético más rápido. El mal condicionado usa 0, 0,02 y 0,04 meses para estudiar sensibilidad matemática. La comparación entre escenarios que muestra la página utiliza sus valores predeterminados; la simulación principal utiliza las entradas actuales del usuario.
+| Caso | Modelo y validación |
+| --- | --- |
+| Detención | Reacción a velocidad constante + frenado uniforme hasta velocidad cero. Referencias analíticas por magnitud; se maneja v0 = 0. |
+| Deterioro | D = D0 + αt + βt²; sesgo calibrado independientemente. LU, Jacobi, Gauss-Seidel y gradiente conjugado comparados con calibración directa. |
+| Viento | Oscilador lineal con fuerza constante. Solución analítica en los tres regímenes de amortiguamiento; cuadraturas comparadas con Simpson adaptativo independiente. |
+| Sensores | Lagrange, Newton corregido y spline natural corregido. Los datos ocultos se retiran del entrenamiento. Error relativo de norma 2 sobre los valores verdaderos ocultos. |
 
-El umbral de 60 puntos es un valor educativo. El cálculo de cruce admite crecimiento monótono con `α ≥ 0` y `β ≥ 0`; si el índice inicial ya alcanza el umbral, devuelve cero. La calibración no determina por sí sola una falla real.
+En MAL de deterioro se conserva la curva normal y se acorta la ventana de observaciones. En detención y viento se conserva la dinámica normal y se estudia por separado una identificación de parámetros con observaciones casi dependientes. En sensores se agrupan los nodos hacia el inicio y se mide amplificación de perturbaciones. El estrés físico y el mal condicionamiento no se confunden.
 
-## Historial y datos
+Jacobi diverge en las matrices escogidas: se muestra el desbordamiento. Un residuo pequeño no asegura parámetros precisos en MAL. La comparación incluye errores y referencias; las normas de parámetros de unidades distintas deben interpretarse por coeficiente. En viento, el máximo de referencia está muestreado con paso 0,005 s y no es el extremo continuo exacto.
 
-Supabase Auth gestiona el registro y el inicio de sesión. La tabla `public.simulaciones` conserva por usuario las entradas, resultados, escenario, versión y fecha. Las políticas RLS restringen las filas al propietario autenticado; la clave de cliente incorporada en el código es pública y no otorga privilegios de servicio. La confirmación del correo depende de la configuración del proyecto Supabase.
-
-El [DER conceptual](figuras/der-propuesto.png) describe el diseño propuesto con casos, escenarios, simulaciones, métodos, iteraciones y resultados. El esquema actualmente aplicado, documentado en [schema.sql](schema.sql), guarda una instantánea JSON por simulación y **no implementa aún todas esas entidades como tablas separadas**. El historial repite las entradas con la versión actual del modelo; todavía falta comprobar con una cuenta real el flujo completo de guardar, cerrar, recuperar y repetir.
-
-## Archivos principales
+## Archivos y evidencia
 
 | Archivo | Función |
-|---|---|
-| `index.html` | Portada y acceso a los cuatro casos. |
-| `deterioro.html`, `detencion.html`, `viento.html`, `sensores.html` | Páginas de los módulos. |
-| `app.js` | Interfaz del simulador e integración de historial. |
-| `math.js` | Modelo de calibración y métodos numéricos. |
-| `math.test.js` | Pruebas de referencia, sensibilidad, validación e iteraciones. |
-| `style.css` | Diseño adaptable y tokens para temas claro y oscuro. |
-| `schema.sql` | Esquema y políticas de acceso de Supabase. |
-| `informe.md` y `figuras/` | Informe científico de avance, DER y gráficos de resultados. |
+| --- | --- |
+| `math.js` | Calibración de deterioro, sistemas lineales y exportaciones públicas. |
+| `numerics.js` | Raíces, interpolación, cuadratura, EDO y modelos corregidos. |
+| `experiments.js` | Fuente común de los doce experimentos, referencias, sensibilidad y conclusiones. |
+| `validacion.html`, `validacion.js`, `validacion.css` | Comparación para semana 3 y ensayo de defensa. |
+| `history-store.js` | Siete entidades del DER con transacciones locales atómicas. |
+| `schema_der.sql` | Esquema PostgreSQL/Supabase propuesto, pendiente de aplicar y verificar. |
+| `informe_Semana_3.html` | Informe completo imprimible desde navegador, con tablas y gráficos. |
+| `informe_Semana_3.md` | Informe y metodología reproducibles. |
+| `evidencia/experimentos-s3.json` | Entradas, salidas, referencias e historiales completos. |
+| `DEFENSA_SEMANA3.md` | Lista de revisión local, video y ensayo presencial. |
 
-## Fotografía de portada
+`npm run build` regenera los paquetes de las cinco páginas a partir de las fuentes ES; ejecutar después de editar JavaScript. Los HTML cargan esos paquetes y conservan opciones estáticas en los filtros. `npm test` también los reconstruye y verifica su arranque.
 
-[Línea Roja de Mi Teleférico en La Paz, Bolivia](https://commons.wikimedia.org/wiki/File:L%C3%ADnea_Roja_de_Mi_Telef%C3%A9rico_en_La_Paz,_Bolivia.jpg), EEJCC, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). La imagen se presenta con un degradado superpuesto mediante CSS.
+`npm run evidence` regenera los tres archivos de evidencia con el mismo núcleo que la aplicación. No editar sus cifras manualmente. Los informes de semana 1 y 2 se conservan como antecedentes; los fallos y entradas de semana 2 no representan el estado corregido de semana 3.
+
+## DER y persistencia
+
+Se mantiene el DER propuesto: `usuario`, `caso_estudio`, `escenario`, `simulacion`, `ejecucion_metodo`, `iteracion_resultado`, `resultado_resumen`. En local, IndexedDB almacena las entidades en una transacción y conserva snapshots versionados. Un participante local permite ensayar sin autenticación; no representa una cuenta de Supabase.
+
+Supabase ya utiliza las siete tablas del DER. La migración `20261125145755_simtele_der_normalizado_conserva_historial` se aplicó tras autorización expresa. Se importaron 18 simulaciones, 86 ejecuciones, 8326 iteraciones y 86 resultados resumidos sin alterar los registros originales. La tabla anterior se conserva para compatibilidad. La documentación y las comprobaciones están en `MIGRACION_SUPABASE.md` y `evidencia/verificacion-supabase.json`.
+
+## Estado de validación
+
+29 tests automatizados locales pasan. Además, la suite SQL real de Supabase obtuvo PASS en los doce escenarios: guardado y recuperación exacta, reintentos sin duplicados, reversión de fallos parciales y aislamiento entre dos usuarios y anon. Los datos de prueba se revirtieron; los originales y sus copias mantienen sus conteos y contenido.
+
+El DOM en memoria comprueba lógica, no apariencia. La suite SQL usa contextos de rol/JWT y no equivale al ciclo de iniciar sesión, cerrar y recuperar desde navegador. Esa comprobación de interfaz sigue pendiente de ensayo.
+
+Para completar la entrega: revisar visualmente en el equipo, comprobar los dos historiales por separado, exportar el informe a PDF (o preparar Word), grabar el video ≤ 3 min, ensayar a los cuatro integrantes y, tras revisar, publicar GitHub.
+
+## Referencias y portada
+
+Sauer, Numerical Analysis, 3.ª ed., 2018. Burden, Faires y Burden, Numerical Analysis, 10.ª ed., 2016. Consigna académica SIMTELE-RISK de semana 3.
+
+Fotografía original: Línea Roja de Mi Teleférico en La Paz, EEJCC, CC BY-SA 4.0; atribución y enlace conservados en la portada.
+
+## Historial de Supabase y revisión de migración
+
+Los cuatro módulos usan `cloud-history.js`: guardar conserva la versión, Ver guardado recupera los valores originales sin recalcular y Repetir entradas compara con el modelo actual. Una versión diferente se indica explícitamente. Los reintentos usan una solicitud estable; los errores de permisos o conexión no provocan una segunda escritura alternativa.
+
+La base conserva 18 registros anteriores, verificados mediante su huella de contenido. La migración copió 86 ejecuciones y 8326 iteraciones sin borrar el origen. Documentación y pruebas: `MIGRACION_SUPABASE.md`, `schema_der.sql` y `pruebas_supabase_der.sql`.

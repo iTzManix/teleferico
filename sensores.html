@@ -12,17 +12,17 @@
         href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-</head>
+<link rel="stylesheet" href="validacion.css"></head>
 
 <body>
     <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
                 RISK</small></a>
         <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
-                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
         <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
         <a class="navcta" href="sensores.html#simulador">Abrir simulador <span>↗</span></a>
     </header>
-    <main>
+    <p id="app-load-status" role="alert" hidden></p><main>
         <div class="shell">
             <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
             <section id="sensores" class="section article">
@@ -112,8 +112,8 @@
                             <option value="mal">Mal condicionado</option>
                         </select>
                         <p class="hint" id="scenario-sen-desc"></p>
-                        <div class="fields"><label>Señal <select id="funcion-sen"><option value="sin">sin(t)</option><option value="exp">e^(−t)</option></select></label><label>Número de nodos <input id="n-nodos" type="number" step="1" min="3" max="20" value="7"></label><label>Intervalo a <input id="sen-a" type="number" step="any" value="0"></label><label>Intervalo b <input id="sen-b" type="number" step="any" value="6.283"></label><label>Ruido <input id="sen-ruido" type="number" step="any" value="0"></label><label>Puntos a ocultar <input id="sen-ocultar" type="number" step="1" min="0" max="10" value="2"></label><label>Umbral para raíz <input id="sen-umbral" type="number" step="any" value="0.5"></label><label>Tolerancia <input id="tol-sen" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div>
-                        <p class="hint">El escenario mal condicionado agrupa nodos en los bordes (fenómeno de Runge).</p><button id="run-sen" class="button dark">Ejecutar simulación <span>↗</span></button>
+                        <div class="fields"><label>Señal <select id="funcion-sen"><option value="sin">sin(t)</option><option value="exp">e^(−t)</option></select></label><label>Número de nodos <input id="n-nodos" type="number" step="1" min="3" max="20" value="7"></label><label>Intervalo a <input id="sen-a" type="number" step="any" value="0"></label><label>Intervalo b <input id="sen-b" type="number" step="any" value="6.283185307179586"></label><label>Ruido <input id="sen-ruido" type="number" step="any" value="0"></label><label>Puntos a ocultar <input id="sen-ocultar" type="number" step="1" min="0" max="10" value="2"></label><label>Umbral para raíz <input id="sen-umbral" type="number" step="any" value="0.5"></label><label>Tolerancia <input id="tol-sen" type="number" min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div>
+                        <p class="hint">En MAL se agrupan nodos hacia el inicio y se mide la amplificación de perturbaciones. Los puntos ocultos se retiran del entrenamiento.</p><button type="button" class="restore-example" id="restore-sensores">Restaurar ejemplo inicial</button><button id="run-sen" class="button dark">Ejecutar simulación <span>↗</span></button>
                         <p id="error-sen" class="error" role="alert"></p>
                     </div>
                     <div id="output-sen" class="panel output" tabindex="-1">
@@ -123,7 +123,7 @@
                             <div><small>ERROR LAGRANGE</small><strong id="err-lag">—</strong></div>
                             <div><small>ERROR NEWTON</small><strong id="err-new">—</strong></div>
                             <div><small>ERROR SPLINE</small><strong id="err-spl">—</strong></div>
-                        </div><svg id="chart-sen" viewBox="0 0 600 220" role="img"
+                        </div><div class="demo-scene" id="demo-sensores"></div><svg id="chart-sen" viewBox="0 0 600 220" role="img"
                             aria-label="Gráfica de señal original y reconstrucciones"></svg>
                         <div class="legend"><span>● Referencia</span><span>● Reconstrucción</span><span>○ Nodos</span></div>
                         <p id="explanation-sen" class="result-text" aria-live="polite"></p>
@@ -150,7 +150,7 @@
                                     <th>ERROR ABS. (ocultos)</th>
                                     <th>ERROR REL. (ocultos)</th>
                                     <th>ERROR % (ocultos)</th>
-                                    <th>ERROR ABS. (conocidos)</th>
+                                    <th>RESIDUO EN NODOS USADOS</th>
                                     <th>RESIDUO</th>
                                 </tr>
                             </thead>
@@ -233,7 +233,7 @@
                     <div class="actions"><button id="signin">Entrar</button><button id="signup">Crear
                             cuenta</button><button id="signout">Salir</button></div>
                     <p id="account-message" role="status" class="hint"></p>
-                    
+
                 </div>
             </div>
             <section id="interpretacion" class="section split conclusion">
@@ -256,7 +256,7 @@
         <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
         <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
     </footer>
-    <script type="module" src="sensores-app.js"></script>
+    <script defer src="assets/sensores-app.bundle.js"></script>
 </body>
 
 </html>

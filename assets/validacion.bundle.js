@@ -1,0 +1,538 @@
+// Generado por npm run build. Editar las fuentes, no este archivo.
+(()=>{'use strict';
+const modules={
+"validacion.js":(exports,load)=>{
+const { renderDemo } = load("demo-scenes.js");
+const {CASES,SCENARIOS,VERSION,INTEGRATION,allExperiments,experiment} = load("experiments.js");
+const {fmt,esc,historyTable,lineChart} = load("render.js");
+const {saveExperiment,listExperiments,loadExperiment,tableCounts} = load("history-store.js");
+const $=id=>document.getElementById(id);
+let reports=[],selected=null;
+const initialCase=$('case-filter').value || 'deterioro';
+$('case-filter').innerHTML=Object.entries(CASES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+$('scenario-filter').innerHTML=Object.entries(SCENARIOS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+$('case-filter').value=initialCase;
+$('integration').textContent=INTEGRATION;
+const rows=methods=>methods.map(m=>`<tr><td>${esc(m.name)}</td><td class="${m.converged?'good':'attention'}">${m.converged?'Calculado / criterio satisfecho':'No convergió'}</td><td>${fmt(m.value)}</td><td>${fmt(m.reference)}</td><td>${esc(m.unit)}</td><td>${fmt(m.errorAbs)}</td><td>${fmt(m.errorRel)}</td><td>${fmt(m.errorPct)}</td><td>${fmt(m.residuo)}</td><td>${m.it??m.iteraciones??m.history?.length??'Directo'}</td></tr>`).join('');
+const shown=m=>Number.isFinite(m.errorRel)?Math.min(1e4,Math.max(1e-16,m.errorRel)):1e4;
+function errorChart(svg,methods) {lineChart(svg,[{points:methods.map((m,i)=>({x:i+1,y:shown(m)}))}],{xLabel:'Método (según la leyenda)',yLabel:'Error relativo, log₁₀ (límites 10⁻¹⁶ a 10⁴)'});}
+function renderMatrix() {
+  $('matrix').innerHTML=Object.entries(CASES).map(([c,label])=>`<tr><td>${label}</td>${Object.entries(SCENARIOS).map(([s])=>{const r=reports.find(r=>r.caso===c&&r.scenario===s);return `<td><button data-case="${c}" data-scenario="${s}" aria-pressed="${selected?.caso===c&&selected?.scenario===s}">${r?.referenceVerified?'Referencia contrastada':'Revisar control'}<small>${r?.methods.length??0} métodos · ${r?.methods.filter(m=>!m.converged).length??0} sin convergencia</small></button></td>`;}).join('')}</tr>`).join('');
+}
+function renderTrace() {
+  const m=selected.methods[Number($('trace-method').value)],key=$('trace-metric').value;
+  lineChart($('convergence-chart'),[{points:(m?.history||[]).map((r,i)=>({x:r.iteration??i+1,y:r[key]}))}],{yLabel:key==='residual'?'Residuo (norma o |f|), log₁₀':'Error absoluto frente a referencia, log₁₀'});
+  $('trace-note').textContent=`${m?.name??''}. ${key==='residual'?'Solo se grafica si el método tiene residuo definido.':'En EDO el error de refinamiento es de trayectoria (viento) o distancia final (detención).'} El eje horizontal enumera los registros; h o n exactos están en las tablas. Cero se dibuja en 10⁻¹⁶; valores no finitos quedan fuera de la curva.`;
+}
+function select(caso,scenario,customReport) {
+  selected=customReport||reports.find(r=>r.caso===caso&&r.scenario===scenario);
+  if(!selected) return;
+  $('case-filter').value=caso;$('scenario-filter').value=scenario;
+  $('selected-title').textContent=CASES[caso];$('selected-scenario').textContent=SCENARIOS[scenario]+' / MODELO '+selected.version;
+  $('open-module').href=caso+'.html?scenario='+scenario+'#simulador';
+  renderDemo(caso,selected.output,selected.inputs,'demo-validacion');
+  $('inputs').textContent=JSON.stringify(selected.inputs,null,2);$('reference-data').textContent=JSON.stringify(selected.reference,null,2);
+  $('reference-kind').textContent=selected.reference.kind;$('reference-check').textContent=selected.referenceVerified?'Control de referencia satisfecho. Consulte las limitaciones y los errores de cada método.':'Revisar el control de referencia de esta ejecución.';
+  const s=selected.sensitivity;$('sensitivity-detail').textContent=s.detail;
+  for(const [id,v] of Object.entries({epsilon:s.epsilon,change:s.change,amplification:s.amplification,condition:s.condition})) $(id).innerHTML=fmt(v);
+  $('identification').textContent=JSON.stringify({matriz:s.C,observaciones:s.y,original:s.original,perturbado:s.perturbed},null,2);
+  $('methods').innerHTML=rows(selected.methods);$('histories').innerHTML=historyTable(selected.methods);
+  $('comparison-note').textContent=caso==='sensores'?'Valor = MAE en datos ocultos; referencia de ese error = 0. Error relativo = norma del vector de errores / norma de los valores verdaderos. Residuo = error máximo en nodos usados.':caso==='deterioro'?'Los vectores siguen el orden [D₀, α, β, s]. Residuo = ||b−Ax||₂; error = distancia a la calibración de referencia. El criterio de residuo no garantiza parámetros precisos.':'Cada resultado se compara con la referencia de su magnitud y unidad. Un guion en residuo significa que esa métrica no se aplica. En viento las cuadraturas integran la solución analítica para separar su error del de la EDO.';
+  $('numerical-conclusion').textContent=selected.conclusions.numerical;$('problem-conclusion').textContent=selected.conclusions.problem;
+  errorChart($('error-chart'),selected.methods);$('error-legend').innerHTML=selected.methods.map((m,i)=>`<span>${i+1}. ${esc(m.name)}</span>`).join('');
+  $('trace-method').innerHTML=selected.methods.map((m,i)=>`<option value="${i}">${esc(m.name)}</option>`).join('');
+  $('trace-method').value=String(Math.max(0,selected.methods.findIndex(m=>m.history?.length&&m.converged)));renderTrace();renderMatrix();
+}
+async function run() {
+  $('suite-status').textContent='Ejecutando los doce experimentos…';$('rerun').disabled=true;
+  await new Promise(resolve=>setTimeout(resolve,0));
+  try{reports=allExperiments();$('coverage').textContent=reports.length+'/12';$('references').textContent=reports.filter(r=>r.referenceVerified).length+'/12';$('suite-status').textContent='Ejecución completa. La divergencia de Jacobi se conserva como resultado numérico.';select($('case-filter').value,$('scenario-filter').value);}catch(e){$('suite-status').textContent='No se completó la validación: '+e.message;}finally{$('rerun').disabled=false;}
+}
+$('case-filter').onchange=$('scenario-filter').onchange=()=>select($('case-filter').value,$('scenario-filter').value);
+$('matrix').onclick=e=>{const b=e.target.closest('[data-case]');if(b)select(b.dataset.case,b.dataset.scenario);};
+$('trace-method').onchange=$('trace-metric').onchange=renderTrace;$('rerun').onclick=run;
+function download(name,text,type) {const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('export').onclick=()=>download('simtele-evidencia-s3.json',JSON.stringify({version:VERSION,date:new Date().toISOString(),reports},(_k,v)=>typeof v==='number'&&!Number.isFinite(v)?String(v):v,2),'application/json');
+$('csv').onclick=()=>{const records=[['caso','escenario','metodo','valor','referencia','unidad','error_abs','error_rel','error_pct','residuo','convergio'],...reports.flatMap(r=>r.methods.map(m=>[r.caso,r.scenario,m.name,JSON.stringify(m.value),JSON.stringify(m.reference),m.unit,m.errorAbs,m.errorRel,m.errorPct,m.residuo,m.converged]))];download('simtele-tablas-s3.csv','\uFEFF'+records.map(row=>row.map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';')).join('\r\n'),'text/csv;charset=utf-8');};
+function printable() {
+  $('print-report').innerHTML=`<h1>SIMTELE-RISK<br>Validación y defensa de semana 3</h1><p>Modelo ${VERSION}. Datos sintéticos. ${new Date().toLocaleDateString('es-BO')}. Equipo: Gabriel Efrain Cruz Quino, Melanny Vania Ramos Paco, Edwin Alvaro Mamani Choque y Adriana Valeria Fernandez Flores.</p><p>Este informe reúne doce experimentos, referencias, comparación de métodos, sensibilidad y dos conclusiones diferenciadas por caso. Los escenarios mal condicionados de detención y viento son subexperimentos de identificación; conservan la dinámica normal para aislar sensibilidad.</p>${reports.map((r,i)=>`<section><h2>${CASES[r.caso]} · ${SCENARIOS[r.scenario]}</h2><h3>Modelo y referencia</h3><p>${esc(r.reference.kind)}</p><pre>${esc(JSON.stringify({inputs:r.inputs,reference:r.reference},null,2))}</pre><h3>Comparación</h3><table><thead><tr><th>Método</th><th>Valor</th><th>Referencia</th><th>Unidad</th><th>Error abs.</th><th>Error rel.</th><th>Estado</th></tr></thead><tbody>${r.methods.map(m=>`<tr><td>${esc(m.name)}</td><td>${fmt(m.value)}</td><td>${fmt(m.reference)}</td><td>${esc(m.unit)}</td><td>${fmt(m.errorAbs)}</td><td>${fmt(m.errorRel)}</td><td>${m.converged?'Calculado':'No convergió'}</td></tr>`).join('')}</tbody></table><h3>Sensibilidad</h3><p>${esc(r.sensitivity.detail)} Amplificación absoluta: ${fmt(r.sensitivity.amplification)}.</p><h3>Conclusión numérica</h3><p>${esc(r.conclusions.numerical)}</p><h3>Conclusión del problema</h3><p>${esc(r.conclusions.problem)}</p><svg id="print-chart-${i}"></svg></section>`).join('')}<section><h2>Conclusión integradora</h2><p>${INTEGRATION}</p><h3>DER y persistencia</h3><p>Usuario → simulación; caso de estudio → escenario → simulación → ejecución de método → iteración y resultado resumido. Historial normalizado local con IndexedDB. Supabase ya tiene el DER. Se importaron 18 experimentos y las pruebas SQL de los doce escenarios, reintentos y aislamiento pasaron. La tabla anterior se conserva; el ensayo de sesión en navegador sigue pendiente. La prueba local debe demostrar guardar, cerrar, recuperar y repetir.</p><h3>Referencias</h3><p>T. Sauer, Numerical Analysis, 3.ª ed., Pearson, 2018. R. L. Burden, J. D. Faires y A. M. Burden, Numerical Analysis, 10.ª ed., Cengage, 2016. Consigna académica SIMTELE-RISK, semana 3. Repositorio https://github.com/iTzManix/teleferico.</p></section>`;
+  reports.forEach((r,i)=>errorChart($('print-chart-'+i),r.methods));
+}
+$('print').onclick=()=>{printable();window.print();};
+$('save-local').onclick=async()=>{try{const id=await saveExperiment(selected);$('persistence-message').textContent=`Experimento ${id} guardado. Recarga la página y recupéralo.`;}catch(e){$('persistence-message').textContent=e.message;}};
+async function list() {
+  try{const saved=await listExperiments();$('saved-list').replaceChildren();
+    for(const row of saved){const li=document.createElement('li'),b=document.createElement('button');b.textContent=`#${row.id} · ${CASES[row.caso]} · ${row.parametros_entrada_json.scenario} · ${row.fecha} · Recuperar y repetir`;
+      b.onclick=async()=>{try{const original=await loadExperiment(row.id),r=experiment(row.caso,row.parametros_entrada_json.scenario,row.parametros_entrada_json);select(r.caso,r.scenario,r);const stable=x=>JSON.stringify(x,(_k,v)=>typeof v==='number'&&!Number.isFinite(v)?String(v):v);const same=stable(original.methods.map(m=>m.value))===stable(r.methods.map(m=>m.value));$('persistence-message').textContent=`Recuperado #${row.id}: ${original.methods.length} resultados originales. Modelo guardado ${row.version_modelo}; actual ${VERSION}. Repetición: ${same?'valores idénticos':'hay diferencias; revisar versión y entradas'}.`;}catch(e){$('persistence-message').textContent=e.message;}};li.append(b);$('saved-list').append(li);
+    }$('persistence-message').textContent=`${saved.length} experimentos recuperados del navegador.`;
+  }catch(e){$('persistence-message').textContent=e.message;}
+}
+$('list-local').onclick=list;$('counts').onclick=async()=>{try{$('stored-counts').textContent=JSON.stringify(await tableCounts(),null,2);}catch(e){$('persistence-message').textContent=e.message;}};
+const ready=run();
+
+Object.assign(exports,{ready});
+},
+"demo-scenes.js":(exports,load)=>{
+const {windExact} = load("numerics.js");
+const {fmt,esc} = load("render.js");
+const active=new Map();
+const cabin=(x,y,angle=0)=>`<g transform="translate(${x} ${y}) rotate(${angle})"><path d="M0 -49V-20" stroke="#53665c" stroke-width="4"/><rect x="-30" y="-20" width="60" height="45" rx="10" fill="#c87540"/><path d="M-22 -12H22V6H-22Z" fill="#d7ebed"/><path d="M0 -12V6M-22 12H22" stroke="#53665c" stroke-width="2"/></g>`;
+function renderDemo(caso,output,inputs,targetId='demo-'+caso) {
+  active.get(targetId)?.();
+  const host=document.getElementById(targetId);if(!host)return;
+  let cancelled=false;active.set(targetId,()=>{cancelled=true;});
+  const titles={detencion:'Del movimiento a la parada',deterioro:'El índice se acerca al umbral',viento:'Una fuerza, una respuesta oscilante',sensores:'Reconstruir lo que no se midió'};
+  const descriptions={detencion:'Durante la reacción, la cabina conserva su velocidad. Después frena hasta detenerse. Mueve el tiempo para ver qué ocurre.',deterioro:'El rodamiento ilustra un índice educativo. El tiempo del control se expresa en meses, y el umbral no representa una falla real.',viento:'La cabina oscila alrededor del equilibrio del modelo. El dibujo amplifica el movimiento para hacerlo visible; los valores muestran metros reales.',sensores:'Los círculos naranjas son observaciones retiradas del entrenamiento. Se contrastan las predicciones con el valor verdadero, sin usarlo para ajustar.'};
+  const end=caso==='detencion'?output.ref.tTotal:caso==='deterioro'?(output.crossing||10):caso==='viento'?30:inputs.b;
+  const unit=caso==='deterioro'?'meses':'s';
+  const start=caso==='sensores'?inputs.a:0,initial=caso==='detencion'?end*.55:caso==='deterioro'?end*.55:caso==='viento'?5:(inputs.a+inputs.b)/2;
+  host.innerHTML=`<div class="demo-heading"><span class="demo-kicker">EJEMPLO INTERACTIVO</span><h3>${titles[caso]}</h3><p>${descriptions[caso]}</p></div><svg data-scene viewBox="0 0 640 210" role="img" aria-label="${esc(titles[caso])}"></svg><div class="demo-values" data-values aria-live="off"></div><label class="demo-time">Explorar tiempo <span data-clock></span><input data-time type="range" min="${start}" max="${Math.max(end,start+.001)}" step="any" value="${initial}" aria-label="Tiempo del ejemplo en ${unit}"></label><div class="demo-controls"><button type="button" data-play>Reproducir ejemplo</button><button type="button" data-reset>Volver al inicio</button></div>`;
+  const slider=host.querySelector('[data-time]'),svg=host.querySelector('[data-scene]'),values=host.querySelector('[data-values]'),clock=host.querySelector('[data-clock]');slider.value=initial;
+  const chip=(name,value)=>`<div><span>${name}</span><strong>${value}</strong></div>`;
+  function draw(t) {
+    clock.textContent=fmt(t)+' '+unit;
+    if(caso==='detencion') {
+      const {v0,tr,a}=inputs,u=Math.min(Math.max(0,t-tr),v0/a),distance=v0*Math.min(t,tr)+v0*u-a*u*u/2,velocity=Math.max(0,v0-a*u),total=output.ref.dTotal||1,px=65+510*distance/total,rx=65+510*v0*tr/total;
+      const phase=t>=end?'Detenida':t<=tr?'Reacción':'Frenado';
+      svg.innerHTML=`<path d="M45 97H595" stroke="#86988b" stroke-width="3"/><path d="M65 158H${rx}" stroke="#ddab62" stroke-width="9"/><path d="M${rx} 158H575" stroke="#428889" stroke-width="9"/><path d="M65 145V174M${rx} 145V174M575 145V174" stroke="#718078" stroke-width="2"/>${cabin(px,116)}<text x="65" y="196" font-size="14">Inicio · 0 m</text><text x="${Math.max(165,rx)}" y="196" font-size="14" text-anchor="middle">Reacción · ${fmt(v0*tr)} m</text><text x="575" y="196" font-size="14" text-anchor="end">Parada · ${fmt(total)} m</text>`;
+      values.innerHTML=chip('Fase',phase)+chip('Velocidad',fmt(velocity)+' m/s')+chip('Distancia',fmt(distance)+' m');
+    } else if(caso==='deterioro') {
+      const [d,a,b]=output.ref,D=d+a*t+b*t*t,ratio=Math.max(0,Math.min(1,D/inputs.threshold)),px=75+500*t/end;
+      svg.innerHTML=`<g transform="translate(120 90)"><circle r="56" fill="none" stroke="#8e9c93" stroke-width="13"/><circle r="29" fill="none" stroke="#428889" stroke-width="12"/>${Array.from({length:8},(_,i)=>{const q=i*Math.PI/4+t*.5;return `<circle cx="${42*Math.cos(q)}" cy="${42*Math.sin(q)}" r="6" fill="#c87540"/>`;}).join('')}</g><text x="235" y="68" font-size="17">D(t) = D₀ + αt + βt²</text><rect x="235" y="90" width="340" height="20" rx="10" fill="#b7c6bb"/><rect x="235" y="90" width="${340*ratio}" height="20" rx="10" fill="#c87540"/><text x="235" y="137" font-size="14">${fmt(D)} / ${fmt(inputs.threshold)} puntos</text><path d="M75 175H575" stroke="#8e9c93" stroke-width="3"/><circle cx="${px}" cy="175" r="7" fill="#c87540"/><text x="75" y="202" font-size="14">Inspección inicial</text><text x="575" y="202" text-anchor="end" font-size="14">Umbral · ${fmt(end)} meses</text>`;
+      values.innerHTML=chip('Índice D(t)',fmt(D)+' puntos')+chip('Umbral',fmt(inputs.threshold)+' puntos')+chip('Tiempo proyectado',fmt(output.crossing)+' meses');
+    } else if(caso==='viento') {
+      const displacement=windExact(inputs,t),max=Math.max(output.ref.xMax,1e-9),x=320+150*displacement/max,eq=320+150*(inputs.F/inputs.k)/max;
+      svg.innerHTML=`<path d="M70 35H570" stroke="#8e9c93" stroke-width="4"/><path d="M320 35L${x} 105" stroke="#53665c" stroke-width="4"/><path d="M320 42V184" stroke="#8e9c93" stroke-dasharray="5 5"/><path d="M${eq} 44V184" stroke="#428889" stroke-dasharray="4 5"/>${cabin(x,145,Math.max(-15,Math.min(15,displacement/max*12)))}<text x="65" y="201" font-size="14">Movimiento ilustrativo · escala amplificada</text><text x="${Math.min(535,eq)}" y="65" font-size="13" text-anchor="end">Equilibrio F/k</text>`;
+      values.innerHTML=chip('Desplazamiento',fmt(displacement)+' m')+chip('Equilibrio',fmt(inputs.F/inputs.k)+' m')+chip('Fuerza constante',fmt(inputs.F)+' N');
+    } else {
+      const xs=output.grafica.t,lag=output.grafica.yLag,spl=output.grafica.ySpl,truth=output.grafica.yRef,min=Math.min(...truth,...lag,...spl),max=Math.max(...truth,...lag,...spl),sx=x=>55+535*(x-inputs.a)/(inputs.b-inputs.a),sy=y=>170-135*(y-min)/(max-min||1),index=Math.min(xs.length-1,Math.max(0,Math.round((t-inputs.a)/(inputs.b-inputs.a)*(xs.length-1))));
+      const curve=(ys,color,dash='')=>`<polyline points="${xs.map((x,i)=>`${sx(x)},${sy(ys[i])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash}"/>`;
+      svg.innerHTML=curve(truth,'#739785','5 4')+curve(lag,'#c87540')+curve(spl,'#5b80b5')+output.nodos.map((x,i)=>`<circle cx="${sx(x)}" cy="${sy(output.valores[i])}" r="4" fill="#428889"/>`).join('')+output.withheld.map(x=>`<circle cx="${sx(x)}" cy="${sy(inputs.funcion==='sin'?Math.sin(x):Math.exp(-x))}" r="7" stroke="#c87540" stroke-width="2" fill="none"/>`).join('')+`<path d="M${sx(t)} 25V180" stroke="#7e8f84" stroke-dasharray="3 4"/><text x="55" y="202" font-size="13">Verde: verdad · Naranja: polinomio · Azul: spline · ○: dato oculto</text>`;
+      values.innerHTML=chip('Datos utilizados',String(output.nodos.length))+chip('Datos ocultos',String(output.withheld.length))+chip('Valor reconstruido',fmt(lag[index]));
+    }
+  }
+  let playing=false,origin=0,last=initial;
+  const play=host.querySelector('[data-play]');
+  slider.oninput=()=>{playing=false;last=Number(slider.value);play.textContent='Reproducir ejemplo';draw(last);};
+  host.querySelector('[data-reset]').onclick=()=>{playing=false;last=start;slider.value=start;play.textContent='Reproducir ejemplo';draw(start);};
+  function frame(now) {
+    if(cancelled||!playing)return;
+    const t=Math.min(end,start+(now-origin)/1000*(end-start)/9);slider.value=t;last=t;draw(t);
+    if(t<end)requestAnimationFrame(frame);else{playing=false;play.textContent='Repetir ejemplo';}
+  }
+  play.onclick=()=>{if(typeof requestAnimationFrame!=='function')return;playing=!playing;if(playing){if(last>=end)last=start;origin=performance.now()-(last-start)/(end-start||1)*9000;play.textContent='Pausar';requestAnimationFrame(frame);}else play.textContent='Continuar';};
+  draw(initial);
+}
+
+Object.assign(exports,{renderDemo});
+},
+"numerics.js":(exports,load)=>{
+// Núcleo verificable v3. Unidades y referencias se conservan por magnitud.
+const absError = (x, ref) => Math.abs(x - ref);
+const relError = (x, ref) => ref === 0 || !Number.isFinite(ref) ? null : absError(x, ref) / Math.abs(ref);
+const pctError = (x, ref) => relError(x, ref) === null ? null : 100 * relError(x, ref);
+const sensitivity = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
+const isFiniteResult = Number.isFinite;
+const residualNorm = (A, x, b) => Math.hypot(...A.map((r, i) => r.reduce((s, v, j) => s + v * x[j], -b[i])));
+function finite(...xs) { if (!xs.every(Number.isFinite)) throw Error('Las entradas deben ser números finitos.'); }
+function options(tol, maxIter) { if (!(tol > 0) || !Number.isInteger(maxIter) || maxIter < 1 || maxIter > 10000) throw Error('Tolerancia o máximo de iteraciones inválido.'); }
+function bisection(f, a, b, {tol = 1e-6, maxIter = 1000} = {}) {
+  finite(a, b); options(tol, maxIter);
+  const history = []; let fa = f(a), fb = f(b);
+  if (!Number.isFinite(fa) || !Number.isFinite(fb) || a > b) return {root:null, converged:false, iterations:0, history, reason:'Intervalo inválido'};
+  if (fa === 0 || fb === 0) return {root:fa === 0 ? a : b, converged:true, iterations:0, history};
+  if (Math.sign(fa) === Math.sign(fb)) return {root:null, converged:false, iterations:0, history, reason:'No hay cambio de signo'};
+  let c;
+  for (let i = 1; i <= maxIter; i++) {
+    c = a + (b - a) / 2; const fc = f(c);
+    history.push({iteration:i, a, b, c, fc, residual:Math.abs(fc), width:(b-a)/2});
+    if (!Number.isFinite(fc)) break;
+    if (fc === 0 || (b-a)/2 <= tol) return {root:c, converged:true, iterations:i, history};
+    if (Math.sign(fa) !== Math.sign(fc)) { b = c; fb = fc; } else { a = c; fa = fc; }
+  }
+  return {root:c, converged:false, iterations:history.length, history};
+}
+function newton(f, df, x, {tol = 1e-6, maxIter = 1000} = {}) {
+  finite(x); options(tol, maxIter); const history = [];
+  for (let i = 1; i <= maxIter; i++) {
+    const fx = f(x), d = df(x);
+    if (!Number.isFinite(fx)) break;
+    if (Math.abs(fx) <= tol) return {root:x, converged:true, iterations:history.length, history};
+    if (!Number.isFinite(d) || Math.abs(d) < 1e-200) break;
+    const next = x - fx/d;
+    if (!Number.isFinite(next)) break;
+    history.push({iteration:i, x:next, fx:f(next), residual:Math.abs(f(next)), step:Math.abs(next-x)});
+    if (Math.abs(next-x) <= tol && Math.abs(f(next)) <= tol) return {root:next, converged:true, iterations:i, history};
+    x = next;
+  }
+  return {root:x, converged:false, iterations:history.length, history, reason:'Derivada, estancamiento o límite de iteraciones'};
+}
+function secant(f, x0, x1, {tol = 1e-6, maxIter = 1000} = {}) {
+  finite(x0,x1); options(tol,maxIter); const history=[];
+  for (let i=1;i<=maxIter;i++) {
+    const f0=f(x0), f1=f(x1);
+    if (Number.isFinite(f1) && Math.abs(f1)<=tol) return {root:x1,converged:true,iterations:history.length,history};
+    if (![f0,f1].every(Number.isFinite) || Math.abs(f1-f0)<1e-200) break;
+    const next=x1-f1*(x1-x0)/(f1-f0); if (!Number.isFinite(next)) break;
+    history.push({iteration:i,x:next,fx:f(next),residual:Math.abs(f(next)),step:Math.abs(next-x1)});
+    if (Math.abs(next-x1)<=tol && Math.abs(f(next))<=tol) return {root:next,converged:true,iterations:i,history};
+    x0=x1; x1=next;
+  }
+  return {root:x1,converged:false,iterations:history.length,history,reason:'Secante degenerada o límite de iteraciones'};
+}
+function nodesValid(xs, ys) {
+  if (xs.length !== ys.length || xs.length < 2 || !xs.concat(ys).every(Number.isFinite) || xs.some((v,i)=>i && v<=xs[i-1])) throw Error('Nodos finitos, distintos y ordenados requeridos.');
+}
+function lagrange(xs, ys, x) {
+  nodesValid(xs,ys);
+  return ys.reduce((s,y,i)=>s+y*xs.reduce((p,v,j)=>j===i?p:p*(x-v)/(xs[i]-v),1),0);
+}
+function newtonDividedDiff(xs,ys,x) {
+  nodesValid(xs,ys); const a=ys.slice(), n=xs.length;
+  for(let j=1;j<n;j++) for(let i=n-1;i>=j;i--) a[i]=(a[i]-a[i-1])/(xs[i]-xs[i-j]);
+  let value=a[n-1]; for(let i=n-2;i>=0;i--) value=a[i]+(x-xs[i])*value;
+  return value;
+}
+function cubicSpline(xs,ys,x) {
+  nodesValid(xs,ys); const n=xs.length, M=Array(n).fill(0), mu=Array(n).fill(0), z=Array(n).fill(0);
+  for(let i=1;i<n-1;i++) {
+    const left=xs[i]-xs[i-1], right=xs[i+1]-xs[i];
+    const den=2*(left+right)-left*mu[i-1];
+    mu[i]=right/den;
+    z[i]=(6*((ys[i+1]-ys[i])/right-(ys[i]-ys[i-1])/left)-left*z[i-1])/den;
+  }
+  for(let i=n-2;i>=0;i--) M[i]=z[i]-mu[i]*M[i+1];
+  let j=0; while(j<n-2 && xs[j+1]<x) j++;
+  const h=xs[j+1]-xs[j], A=(xs[j+1]-x)/h, B=(x-xs[j])/h;
+  return A*ys[j]+B*ys[j+1]+((A*A*A-A)*M[j]+(B*B*B-B)*M[j+1])*h*h/6;
+}
+function intervals(n) { if(!Number.isInteger(n) || n<1 || n>200000) throw Error('Subintervalos: entero entre 1 y 200000.'); }
+function trapezoid(f,a,b,n=1000) {
+  intervals(n); finite(a,b); const h=(b-a)/n; let sum=(f(a)+f(b))/2;
+  for(let i=1;i<n;i++) sum+=f(a+i*h); return sum*h;
+}
+function simpson(f,a,b,n=1000) {
+  intervals(n); finite(a,b); n+=n%2; const h=(b-a)/n; let sum=f(a)+f(b);
+  for(let i=1;i<n;i++) sum+=(i%2?4:2)*f(a+i*h); return sum*h/3;
+}
+function romberg(f,a,b,maxDepth=10,tol=1e-10) {
+  if(!Number.isInteger(maxDepth)||maxDepth<2||maxDepth>17||!(tol>0)) throw Error('Profundidad o tolerancia inválida.');
+  const table=[[trapezoid(f,a,b,1)]];
+  for(let i=1;i<maxDepth;i++) {
+    table[i]=[trapezoid(f,a,b,2**i)];
+    for(let j=1;j<=i;j++) table[i][j]=table[i][j-1]+(table[i][j-1]-table[i-1][j-1])/(4**j-1);
+    if(Math.abs(table[i][i]-table[i-1][i-1])<=tol) return {value:table[i][i],depth:i+1,converged:true,table};
+  }
+  return {value:table.at(-1).at(-1),depth:maxDepth,converged:false,table};
+}
+function rk2Step(f,t,y,h) { const a=f(t,y), b=f(t+h/2,y.map((v,i)=>v+h*a[i]/2)); return y.map((v,i)=>v+h*b[i]); }
+function rk4Step(f,t,y,h) {
+  const a=f(t,y),b=f(t+h/2,y.map((v,i)=>v+h*a[i]/2)),c=f(t+h/2,y.map((v,i)=>v+h*b[i]/2)),d=f(t+h,y.map((v,i)=>v+h*c[i]));
+  return y.map((v,i)=>v+h*(a[i]+2*b[i]+2*c[i]+d[i])/6);
+}
+function integrate(step,f,t0,y0,end,h) {
+  finite(t0,end,h,...y0);
+  if(h<=0 || end<t0 || Math.ceil((end-t0)/h)>200000) throw Error('Paso o intervalo de integración inválido (máximo 200000 pasos).');
+  const t=[t0],y=[y0.slice()]; let ti=t0,yi=y0.slice();
+  const n=Math.ceil((end-t0)/h);
+  for(let i=0;i<n;i++) {
+    const next=i===n-1?end:Math.min(end,t0+(i+1)*h);
+    yi=step(f,ti,yi,next-ti); ti=next;
+    if(!yi.every(Number.isFinite)) throw Error('La trayectoria desbordó. Reduce el paso o revisa los parámetros.');
+    t.push(ti); y.push(yi.slice());
+  }
+  return {t,y};
+}
+const rk2=(f,t,y,end,h)=>integrate(rk2Step,f,t,y,end,h);
+const rk4=(f,t,y,end,h)=>integrate(rk4Step,f,t,y,end,h);
+const metric=(name,value,ref,unit,extra={})=>({name,value,reference:ref,unit,magnitud:unit,errorAbs:absError(value,ref),errorRel:relError(value,ref),errorPct:pctError(value,ref),converged:Number.isFinite(value),residuo:null,history:[],...extra});
+function simulateDetencion({v0,tr,a,tolerance=1e-6,h=.01,scenario='normal'}) {
+  finite(v0,tr,a,tolerance,h); if(v0<0||tr<0||a<=0||h<=0||tolerance<=0) throw Error('Se requiere v₀ ≥ 0, reacción ≥ 0, a > 0, paso y tolerancia positivos.');
+  const tb=v0/a, total=v0===0?0:tr+tb, distance=v0*tr+v0*v0/(2*a);
+  const ref={tTotal:total,dTotal:distance};
+  function trajectory(solver,step) {
+    if(v0===0) return {t:[0],y:[[0,0]]};
+    const reaction=solver((_t,[_x,v])=>[v,0],0,[0,v0],tr,step);
+    const brake=solver((_t,[_x,v])=>[v,-a],tr,reaction.y.at(-1),total,step);
+    brake.y.at(-1)[1]=0;
+    return {t:[...reaction.t,...brake.t.slice(1)],y:[...reaction.y,...brake.y.slice(1)]};
+  }
+  const sol2=trajectory(rk2,h), sol4=trajectory(rk4,h);
+  const vf=t=>v0-a*(t-tr), rootOptions={tol:tolerance};
+  const zero={root:0,converged:true,iterations:0,history:[]};
+  const roots=v0===0?{biseccion:zero,newton:zero,secante:zero}:{biseccion:bisection(vf,tr,tr+tb*1.3,rootOptions),newton:newton(vf,()=>-a,tr,rootOptions),secante:secant(vf,tr,tr+tb*1.3,rootOptions)};
+  const results=[];
+  for(const [name,solver,sol] of [['RK2',rk2,sol2],['RK4',rk4,sol4]]) {
+    const history=[h,h/2,h/4].map((step,i)=>{const value=trajectory(solver,step).y.at(-1)[0];return {iteration:i+1,h:step,value,error:absError(value,distance)};});
+    results.push(metric(name+' (distancia)',sol.y.at(-1)[0],distance,'m',{history,tiempo:total}));
+  }
+  const n=Math.max(2,Math.ceil(tb/h));
+  const quadrature=(method,count)=>v0===0?0:v0*tr+method(t=>v0-a*t,0,tb,count);
+  for(const [name,method] of [['Trapecio',trapezoid],['Simpson 1/3',simpson]]) {
+    const history=[Math.max(2,Math.ceil(n/4)),Math.max(2,Math.ceil(n/2)),n].map((count,i)=>{const value=quadrature(method,count);return {iteration:i+1,n:method===simpson?count+count%2:count,value,error:absError(value,distance)};});
+    results.push(metric(name+' (distancia)',quadrature(method,n),distance,'m',{history,tiempo:total}));
+  }
+  const rb=v0===0?{value:0,depth:0,converged:true,table:[]}:romberg(t=>v0-a*t,0,tb,12,tolerance);
+  results.push(metric('Romberg (distancia)',v0*tr+rb.value,distance,'m',{converged:rb.converged,history:rb.table.map((row,i)=>({iteration:i+1,n:2**i,value:v0*tr+row[i],error:absError(v0*tr+row[i],distance)})),profundidad:rb.depth}));
+  for(const [name,key] of [['Bisección','biseccion'],['Newton','newton'],['Secante','secante']]) {
+    const r=roots[key]; results.push(metric(name+' (tiempo)',r.root,total,'s',{converged:r.converged,iteraciones:r.iterations,history:r.history.map(row=>({...row,error:absError(row.c??row.x,total)})),residuo:v0===0?0:Math.abs(vf(r.root))}));
+  }
+  return {scenario,entradas:{v0,tr,a,tolerance,h},ref,resultados:results,cruce:roots,grafica:{t:sol4.t,x:sol4.y.map(y=>y[0]),v:sol4.y.map(y=>Math.max(0,y[1])),tCruce:total,dTotal:distance}};
+}
+// Solución exacta del oscilador lineal con fuerza constante, todos los regímenes.
+function windExact({m,c,k,F,x0,v0},t) {
+  const eq=F/k,q=x0-eq,g=c/(2*m),w2=k/m,disc=g*g-w2;
+  if(Math.abs(disc)<=1e-12*Math.max(w2,g*g)) return eq+Math.exp(-g*t)*(q+(v0+g*q)*t);
+  if(disc<0) { const w=Math.sqrt(-disc);return eq+Math.exp(-g*t)*(q*Math.cos(w*t)+(v0+g*q)*Math.sin(w*t)/w); }
+  const d=Math.sqrt(disc),r1=-w2/(g+d),r2=-g-d,A=(v0-r2*q)/(r1-r2),B=q-A;
+  return eq+A*Math.exp(r1*t)+B*Math.exp(r2*t);
+}
+// Referencia de cuadratura independiente: Simpson adaptativo por 64 segmentos.
+function adaptiveIntegral(f,a,b,tol=1e-11) {
+  function rec(a,b,fa,fm,fb,S,eps,depth) {
+    const mid=(a+b)/2,fl=f((a+mid)/2),fr=f((mid+b)/2),L=(mid-a)*(fa+4*fl+fm)/6,R=(b-mid)*(fm+4*fr+fb)/6,delta=L+R-S;
+    if(depth===0 && Math.abs(delta)>15*eps) throw Error('La referencia adaptativa no alcanzó precisión.');
+    if(Math.abs(delta)<=15*eps || depth===0) return L+R+delta/15;
+    return rec(a,mid,fa,fl,fm,L,eps/2,depth-1)+rec(mid,b,fm,fr,fb,R,eps/2,depth-1);
+  }
+  let value=0; for(let i=0;i<64;i++) { const l=a+(b-a)*i/64,r=a+(b-a)*(i+1)/64,fa=f(l),fm=f((l+r)/2),fb=f(r); value+=rec(l,r,fa,fm,fb,(r-l)*(fa+4*fm+fb)/6,tol/64,22); }
+  return value;
+}
+function simulateViento(p) {
+  const {m,c,k,F,x0,v0,tolerance=1e-6,h=.01,scenario='normal'}=p;
+  finite(m,c,k,F,x0,v0,tolerance,h); if(m<=0||k<=0||c<0||h<=0||tolerance<=0) throw Error('m y k positivos, c ≥ 0, paso y tolerancia positivos requeridos.');
+  const f=(_t,[x,v])=>[v,(F-c*v-k*x)/m], end=30, exact=t=>windExact(p,t),sol2=rk2(f,0,[x0,v0],end,h),sol4=rk4(f,0,[x0,v0],end,h);
+  const grid=Array.from({length:6001},(_,i)=>end*i/6000),xr=grid.map(exact),maxRef=Math.max(...xr.map(Math.abs));
+  const results=[];
+  for(const [name,solver,sol] of [['RK2',rk2,sol2],['RK4',rk4,sol4]]) {
+    const trajectoryError=s=>Math.max(...s.y.map((y,i)=>Math.abs(y[0]-exact(s.t[i]))));
+    const history=[h,h/2,h/4].map((step,i)=>({iteration:i+1,h:step,error:trajectoryError(step===h?sol:solver(f,0,[x0,v0],end,step))}));
+    const xMax=Math.max(...sol.y.map(y=>Math.abs(y[0])));
+    results.push(metric(name+' (ampl. máx.)',xMax,maxRef,'m',{magnitud:'amplitud',trajectoryError:trajectoryError(sol),history,referenceLabel:'Máximo muestreado de la solución exacta, Δt = 0,005 s'}));
+  }
+  const n=Math.max(8,Math.ceil(end/h));
+  for(const [label,fun,unit] of [['|x|',t=>Math.abs(exact(t)),'m·s'],['x²',t=>exact(t)**2,'m²·s']]) {
+    const reference=adaptiveIntegral(fun,0,end);
+    for(const [name,method] of [['Trapecio',trapezoid],['Simpson',simpson]]) {
+      const history=[Math.ceil(n/4),Math.ceil(n/2),n].map((count,i)=>{const value=method(fun,0,end,count);return {iteration:i+1,n:method===simpson?count+count%2:count,value,error:absError(value,reference)};});
+      results.push(metric(name+' ∫'+label,method(fun,0,end,n),reference,unit,{magnitud:'integral '+label,history}));
+    }
+    const rb=romberg(fun,0,end,14,tolerance);
+    results.push(metric('Romberg ∫'+label,rb.value,reference,unit,{magnitud:'integral '+label,converged:rb.converged,history:rb.table.map((row,i)=>({iteration:i+1,n:2**i,value:row[i],error:absError(row[i],reference)})),profundidad:rb.depth}));
+  }
+  return {scenario,entradas:{m,c,k,F,x0,v0,tolerance,h},ref:{xMax:maxRef,tEnd:end,kind:'Solución analítica e integración adaptativa independiente'},resultados:results,grafica:{t:sol4.t,x:sol4.y.map(y=>y[0]),xRK2:sol2.y.map(y=>y[0]),v:sol4.y.map(y=>y[1]),tRef:grid,xRef:xr}};
+}
+function simulateSensores({funcion='sin',nNodos=7,a=0,b=2*Math.PI,ruido=0,puntosOcultar=2,umbral=.5,tolerance=1e-6,scenario='normal',perturbation=0}) {
+  finite(nNodos,a,b,ruido,puntosOcultar,tolerance,perturbation);
+  if(!['sin','exp'].includes(funcion)||!Number.isInteger(nNodos)||nNodos<4||nNodos>20||!(b>a)||ruido<0||!Number.isInteger(puntosOcultar)||puntosOcultar<1||puntosOcultar>nNodos-3||tolerance<=0) throw Error('Usa 4 a 20 nodos y oculta entre 1 y n−3 puntos; intervalo creciente y ruido ≥ 0.');
+  const truth=funcion==='sin'?Math.sin:t=>Math.exp(-t);
+  const allNodes=Array.from({length:nNodos},(_,i)=>a+(b-a)*(scenario==='mal'?(i/(nNodos-1))**5:i/(nNodos-1)));
+  const hidden=new Set(Array.from({length:puntosOcultar},(_,i)=>Math.max(1,Math.min(nNodos-2,Math.round((i+1)*(nNodos-1)/(puntosOcultar+1))))));
+  const nodos=allNodes.filter((_,i)=>!hidden.has(i)),valores=allNodes.map((t,i)=>truth(t)+Math.sin(i*7.3+1.1)*ruido).filter((_,i)=>!hidden.has(i));
+  valores[0]+=perturbation;
+  const withheld=allNodes.filter((_,i)=>hidden.has(i));
+  const evals=Array.from({length:121},(_,i)=>a+(b-a)*i/120),yRef=evals.map(truth);
+  const funcs={lagrange:x=>lagrange(nodos,valores,x),newton:x=>newtonDividedDiff(nodos,valores,x),spline:x=>cubicSpline(nodos,valores,x)};
+  const errors={},known={},dense={},predictions={},results=[];
+  for(const [key,interp] of Object.entries(funcs)) {
+    const es=withheld.map(t=>interp(t)-truth(t)),mae=es.reduce((s,v)=>s+Math.abs(v),0)/es.length;
+    const relative=Math.hypot(...withheld.map(t=>truth(t)))===0?null:Math.hypot(...es)/Math.hypot(...withheld.map(truth));
+    const fit=Math.max(...nodos.map((t,i)=>Math.abs(interp(t)-valores[i])));
+    errors[key]=mae; known[key]=fit; predictions[key]=evals.map(interp); dense[key]=Math.max(...evals.map((t,i)=>Math.abs(predictions[key][i]-truth(t))));
+    results.push({name:{lagrange:'Lagrange',newton:'Newton (dif. divididas)',spline:'Spline cúbico'}[key],key,converged:Number.isFinite(mae),valor:mae,value:mae,reference:0,unit:'señal',magnitud:'MAE ocultos',errorAbs:mae,errorRel:relative,errorPct:relative===null?null:100*relative,errorConocidos:fit,errorOcultos:mae,errorValidacion:dense[key],residuo:fit,history:withheld.map((t,i)=>({iteration:i+1,t,value:interp(t),reference:truth(t),error:Math.abs(es[i])}))});
+  }
+  let root=null;
+  if(Number.isFinite(umbral)) { const f=t=>funcs.lagrange(t)-umbral; for(let i=0;i<200;i++) { const l=a+(b-a)*i/200,r=a+(b-a)*(i+1)/200;if(f(l)*f(r)<=0){root=bisection(f,l,r,{tol:tolerance});break;} } }
+  return {scenario,entradas:{funcion,nNodos,a,b,ruido,puntosOcultar,umbral,tolerance,perturbation},ref:{funcion,a,b,nNodos},nodos,valores,withheld,puntosEval:evals,resultados:results,errorOcultos:errors,errorConocidos:known,errorValidacion:dense,raiz:{biseccion:root,umbral},grafica:{t:evals,yRef,yLag:predictions.lagrange,yNew:predictions.newton,ySpl:predictions.spline,nodos,valores}};
+}
+
+Object.assign(exports,{absError,relError,pctError,sensitivity,isFiniteResult,residualNorm,bisection,newton,secant,lagrange,newtonDividedDiff,cubicSpline,trapezoid,simpson,romberg,rk2Step,rk4Step,rk2,rk4,simulateDetencion,windExact,adaptiveIntegral,simulateViento,simulateSensores});
+},
+"render.js":(exports,load)=>{
+const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Array.isArray(n)?'['+n.map(fmt).join('; ')+']':typeof n==='number'?(Number.isFinite(n)?(n===0?'0':Math.abs(n)<.001||Math.abs(n)>1e5?n.toExponential(3):Number(n.toPrecision(6)).toString()):'no finito'):n==null?'—':esc(n);
+function historyTable(methods) {
+  return methods.map(m=>{
+    const rows=m.history||[],keys=['iteration','h','n','t','value','reference','x','c','residual','error'].filter(k=>rows.some(r=>r[k]!==undefined));
+    const labels={iteration:'Paso / iteración',h:'h',n:'Subintervalos',t:'t',value:'Aproximación',reference:'Referencia',x:'x',c:'Punto medio',residual:'Residuo',error:'Error absoluto'};
+    return `<details><summary>${esc(m.name)} · ${rows.length} registros · ${m.converged?'criterio satisfecho / calculado':'no convergió'}</summary>${rows.length?`<div class="table-wrap"><table><thead><tr>${keys.map(k=>`<th>${labels[k]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${keys.map(k=>`<td>${fmt(r[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'<p>Método directo sin iteraciones. Consulte el resultado y su error.</p>'}</details>`;
+  }).join('');
+}
+function lineChart(svg,series,{xLabel='Iteración / refinamiento',yLabel='Error absoluto (escala log₁₀)',log=true}={}) {
+  const colors=['#d77d48','#49a4c7','#8c75d6','#579361'],W=760,H=290,L=80,R=20,T=24,B=52;
+  const points=series.flatMap(s=>s.points).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+  if(!points.length){svg.innerHTML='<text x="20" y="40" fill="currentColor">Sin registros finitos para esta métrica.</text>';return;}
+  const transform=y=>log?Math.log10(Math.max(1e-16,Math.abs(y))):y;
+  let xmin=Math.min(...points.map(p=>p.x)),xmax=Math.max(...points.map(p=>p.x));if(xmax===xmin)xmax=xmin+1;
+  let ymin=Math.min(...points.map(p=>transform(p.y))),ymax=Math.max(...points.map(p=>transform(p.y)));if(ymax===ymin){ymin-=1;ymax+=1;}
+  const sx=x=>L+(x-xmin)/(xmax-xmin)*(W-L-R),sy=y=>H-B-(transform(y)-ymin)/(ymax-ymin)*(H-T-B);
+  let html='';for(let i=0;i<=4;i++){const y=T+i*(H-T-B)/4,label=ymax-i*(ymax-ymin)/4;html+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="currentColor" opacity=".12"/><text x="${L-8}" y="${y+5}" text-anchor="end" fill="currentColor" font-size="13">${log?'10^':''}${label.toFixed(1)}</text>`;}
+  for(let i=0;i<=4;i++){const x=xmin+i*(xmax-xmin)/4;html+=`<text x="${sx(x)}" y="${H-B+22}" text-anchor="middle" fill="currentColor" font-size="13">${x.toPrecision(3)}</text>`;}
+  for(const [i,s] of series.entries()){const ps=s.points.filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));html+=`<polyline fill="none" stroke="${colors[i%4]}" stroke-width="2.5" points="${ps.map(p=>`${sx(p.x)},${sy(p.y)}`).join(' ')}"/>`;if(ps.length<20)html+=ps.map(p=>`<circle cx="${sx(p.x)}" cy="${sy(p.y)}" r="3" fill="${colors[i%4]}"/>`).join('');}
+  html+=`<text x="${L}" y="15" fill="currentColor" font-size="13">${esc(yLabel)}</text><text x="${W/2}" y="${H-6}" text-anchor="middle" fill="currentColor" font-size="13">${esc(xLabel)}</text>`;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);svg.innerHTML=html;
+}
+
+Object.assign(exports,{esc,fmt,historyTable,lineChart});
+},
+"experiments.js":(exports,load)=>{
+const {simulate, direct, simulateDetencion, simulateViento, simulateSensores} = load("math.js");
+const VERSION='3.0.0';
+const CASES={detencion:'Detención de emergencia',deterioro:'Deterioro mecánico',viento:'Oscilaciones por viento',sensores:'Reconstrucción de sensores'};
+const SCENARIOS={normal:'Normal',estres:'Estrés',mal:'Mal condicionado'};
+const PRESETS={
+  deterioro:{normal:{values:[13,15.5,19,3,60,1e-6],desc:'Curva D = 10 + 2t + 0,5t²; mediciones en 0, 1 y 2 meses.'},estres:{values:[18,23,30,3,60,1e-6],desc:'Curva D = 15 + 4t + t²; crecimiento más rápido.'},mal:{values:[13,13.0402,13.0808,3,60,1e-6],desc:'La misma curva normal, medida en 0, 0,02 y 0,04 meses. Se aísla la sensibilidad.'}},
+  detencion:{normal:{values:[10,1,2,1e-6,.1],desc:'Reacción a velocidad constante y frenado hasta v = 0.'},estres:{values:[15,1.5,1.5,1e-6,.1],desc:'Más velocidad, mayor reacción y menor desaceleración.'},mal:{values:[10,1,2,1e-6,.1],desc:'Misma dinámica normal. Identificación sensible del frenado con dos velocidades casi iguales; véase Validación.'}},
+  viento:{normal:{values:[500,50,200,100,0,0,1e-6,.4],desc:'Oscilador amortiguado con fuerza constante de 100 N.'},estres:{values:[500,20,200,200,0,0,1e-6,.4],desc:'Mayor fuerza y menor amortiguamiento.'},mal:{values:[500,50,200,100,0,0,1e-6,.4],desc:'Misma dinámica normal. Identificación de c y k con observaciones casi dependientes; véase Validación.'}},
+  sensores:{normal:{values:['sin',7,0,2*Math.PI,0,2,.5,1e-6],desc:'Se retiran dos observaciones antes de construir los interpolantes.'},estres:{values:['sin',7,0,2*Math.PI,.08,3,.5,1e-6],desc:'Tres observaciones ausentes y ruido determinista de amplitud 0,08.'},mal:{values:['sin',9,0,2*Math.PI,0,2,.5,1e-6],desc:'Nodos agrupados hacia el inicio (t = a + (b−a)u⁵). Se cuantifica la amplificación de una perturbación.'}}
+};
+const KEYS={deterioro:['y0','y1','y2','bias','threshold','tolerance'],detencion:['v0','tr','a','tolerance','h'],viento:['m','c','k','F','x0','v0','tolerance','h'],sensores:['funcion','nNodos','a','b','ruido','puntosOcultar','umbral','tolerance']};
+function presetInputs(caso,scenario) {return {...Object.fromEntries(KEYS[caso].map((k,i)=>[k,PRESETS[caso][scenario].values[i]])),scenario};}
+const SOLVERS={deterioro:simulate,detencion:simulateDetencion,viento:simulateViento,sensores:simulateSensores};
+const f=n=>Number.isFinite(n)?Number(n).toPrecision(5):'no finito';
+const matNorm=A=>Math.max(...A.map(r=>r.reduce((s,v)=>s+Math.abs(v),0)));
+function conditionInf(A) {
+  const columns=A.map((_,i)=>direct(A,A.map((_,j)=>i===j?1:0)));
+  return matNorm(A)*matNorm(A.map((_,i)=>columns.map(c=>c[i])));
+}
+function identification(C,truth,eps) {
+  const y=C.map(r=>r.reduce((s,v,i)=>s+v*truth[i],0)),z=y.slice(); z[z.length-1]+=eps;
+  const original=direct(C,y),perturbed=direct(C,z),change=Math.hypot(...original.map((v,i)=>v-perturbed[i]));
+  return {C,y,original,perturbed,epsilon:eps,change,amplification:change/eps,condition:conditionInf(C)};
+}
+function experiment(caso,scenario,custom) {
+  const inputs=custom?{...custom,scenario}:presetInputs(caso,scenario), start=performance.now(), output=SOLVERS[caso](inputs),elapsed=performance.now()-start;
+  let methods,reference,conclusions,check,sensitivity;
+  if(caso==='deterioro') {
+    methods=output.results.map(m=>({...m,value:m.x,reference:output.ref,unit:'vector de parámetros',errorAbs:m.error,errorRel:m.relativeError,errorPct:m.relativeError===null?null:100*m.relativeError,residuo:m.residual}));
+    const h=output.times[1],beta=(inputs.y2-2*inputs.y1+inputs.y0)/(2*h*h),alpha=(inputs.y1-inputs.y0)/h-beta*h,independent=[inputs.y0-inputs.bias,alpha,beta,inputs.bias];
+    check=Math.hypot(...independent.map((v,i)=>v-output.ref[i]))<1e-7;
+    reference={kind:'Diferencias finitas de las tres lecturas y calibración independiente',parameters:independent,crossing:output.crossing,condition:output.condition};
+    const pert=simulate({...inputs,y2:inputs.y2+1e-4});
+    sensitivity={epsilon:1e-4,change:Math.abs(pert.ref[2]-output.ref[2]),amplification:Math.abs(pert.ref[2]-output.ref[2])/1e-4,condition:output.condition,detail:'Cambio en β al aumentar y₂ en 0,0001 puntos. κ₂ corresponde a CᵀC; las ecuaciones normales elevan al cuadrado κ₂(C).'};
+    const gc=methods.find(m=>m.name==='Gradiente conjugado');
+    conclusions={numerical:`Jacobi diverge en esta matriz. Gauss-Seidel y gradiente conjugado deben evaluarse por error y residuo: GC termina con error relativo ${f(100*gc.errorRel)} %. κ₂(A) = ${f(output.condition)}. Las normas de parámetros mezclan unidades; los errores por coeficiente se obtienen de los vectores de la tabla.`,problem:`Con D₀ = ${f(output.ref[0])}, α = ${f(output.ref[1])} y β = ${f(output.ref[2])}, el umbral hipotético ${inputs.threshold} se alcanza en ${output.crossing===null?'un tiempo no definido bajo el supuesto de crecimiento':f(output.crossing)+' meses'}. Es una proyección del índice, no el instante de falla del rodamiento.`};
+  } else if(caso==='detencion') {
+    methods=output.resultados; reference={kind:'Solución analítica por tramos: reacción + frenado uniforme',...output.ref};
+    check=methods.every(m=>m.converged && m.errorAbs<Math.max(1e-7,inputs.tolerance*10));
+    const speed=inputs.v0||10,delta=scenario==='mal'?.001:5;
+    sensitivity={...identification([[speed,speed*speed],[speed+delta,(speed+delta)**2]],[inputs.tr,1/(2*inputs.a)],1e-4),detail:'Identificación de [tᵣ, q], q = 1/(2a), desde d(v) = v·tᵣ + v²q. Solo cambia la separación de velocidades del experimento, no el frenado físico. κ∞ de la matriz de observaciones.'};
+    conclusions={numerical:'Raíces, cuadraturas y RK se comparan con la referencia de su propia magnitud. Al separar la reacción del frenado se elimina el sesgo anterior. Para aceleración constante, RK2/RK4 y las cuadraturas pueden ser exactos salvo redondeo; eso no prueba su exactitud en una dinámica general.',problem:`La cabina se detiene a los ${f(output.ref.tTotal)} s tras recorrer ${f(output.ref.dTotal)} m. La reacción aporta ${f(inputs.v0*inputs.tr)} m. Velocidad inicial y capacidad de frenado determinan el margen de parada bajo estos supuestos.`};
+  } else if(caso==='viento') {
+    methods=output.resultados; reference={kind:output.ref.kind,xMax:output.ref.xMax,integrals:methods.filter(m=>m.name.startsWith('Romberg')).map(m=>({name:m.name,value:m.reference,unit:m.unit}))};
+    check=methods.filter(m=>m.name.startsWith('RK4')).every(m=>m.trajectoryError<.01);
+    const delta=scenario==='mal'?1e-5:1;
+    sensitivity={...identification([[1,1],[2,2+delta]],[inputs.c,inputs.k],1e-4),detail:'Identificación [c, k] a partir de F−m·x″ = c·v + k·x. Filas [v, x] sintéticas; casi dependientes en MAL. κ∞ mide sensibilidad del problema inverso, no inestabilidad física.'};
+    const r2=methods[0],r4=methods[1];
+    conclusions={numerical:`La trayectoria se valida con la solución analítica: error máximo RK2 = ${f(r2.trajectoryError)} m y RK4 = ${f(r4.trajectoryError)} m. Las tablas refinan h; cada integral usa una referencia adaptativa independiente con sus unidades. El máximo muestreado añade error de localización del pico.`,problem:`El máximo de desplazamiento de referencia muestreado en 30 s es ${f(output.ref.xMax)} m. La fuerza constante desplaza el equilibrio a ${f(inputs.F/inputs.k)} m. El caso mal condicionado estudia la identificación de parámetros, manteniendo la misma dinámica normal.`};
+  } else {
+    methods=output.resultados; reference={kind:'Señal analítica conocida; observaciones ocultas retiradas antes de interpolar',signal:inputs.funcion,withheld:output.withheld.map(t=>({t,value:inputs.funcion==='sin'?Math.sin(t):Math.exp(-t)})),trainingNodes:output.nodos};
+    check=output.withheld.every(t=>!output.nodos.includes(t))&&methods.every(m=>Number.isFinite(m.errorAbs));
+    const pert=simulateSensores({...inputs,perturbation:(inputs.perturbation||0)+1e-8}),change=Math.max(...pert.grafica.yLag.map((v,i)=>Math.abs(v-output.grafica.yLag[i])));
+    sensitivity={epsilon:1e-8,change,amplification:change/1e-8,detail:'Cambio máximo del interpolante de Lagrange en una malla de 121 puntos al aumentar únicamente la primera lectura de entrenamiento en 10⁻⁸. No se perturban los datos ocultos.'};
+    const best=methods.reduce((a,b)=>a.errorAbs<b.errorAbs?a:b);
+    conclusions={numerical:`Newton y Lagrange representan el mismo polinomio para los mismos datos; sus discrepancias numéricas deben observarse en nodos agrupados. El menor MAE oculto de esta ejecución es ${f(best.errorAbs)} (${best.name}). El spline natural conserva continuidad de primera y segunda derivadas. El error relativo se calcula como ||predicción−verdad||₂ / ||verdad||₂ en datos ocultos.`,problem:`Se reconstruyen ${output.withheld.length} observaciones retiradas, usando ${output.nodos.length} lecturas disponibles. El ruido y la distribución de observaciones afectan la precisión. El error en nodos de entrenamiento no sustituye la validación en datos ausentes.`};
+  }
+  return {caso,scenario,inputs,version:VERSION,elapsed,reference,referenceVerified:check,methods,sensitivity,conclusions,output};
+}
+function allExperiments() {return Object.keys(CASES).flatMap(c=>Object.keys(SCENARIOS).map(s=>experiment(c,s)));}
+const INTEGRATION='La confiabilidad depende de un modelo coherente, una referencia independiente y una métrica con unidades correctas. La convergencia del algoritmo no garantiza precisión de los parámetros ni validez física. El estrés cambia la exigencia del fenómeno; el mal condicionamiento amplifica incertidumbres del problema matemático. Los cuatro casos permiten evaluar estas diferencias sin inferir fallas reales de Mi Teleférico.';
+
+Object.assign(exports,{VERSION,CASES,SCENARIOS,PRESETS,presetInputs,SOLVERS,conditionInf,experiment,allExperiments,INTEGRATION});
+},
+"math.js":(exports,load)=>{
+const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0), norm = a => Math.hypot(...a);
+const mv = (A, x) => A.map(row => dot(row, x));
+
+function direct(A, b) {
+    let a = A.map((row, i) => [...row, b[i]]), n = b.length;
+    for (let k = 0; k < n; k++) {
+        let p = k;
+        for (let i = k + 1; i < n; i++)
+            if (Math.abs(a[i][k]) > Math.abs(a[p][k])) p = i;
+        if (Math.abs(a[p][k]) < 1e-20)
+            throw Error('El sistema es singular.');[a[k], a[p]] = [a[p], a[k]];
+        for (let i = k + 1; i < n; i++) {
+            let f = a[i][k] / a[k][k];
+            for (let j = k; j <= n; j++)a[i][j] -= f * a[k][j]
+        }
+    } let x = Array(n).fill(0);
+    for (let i = n - 1; i >= 0; i--) {
+        let v = a[i][n];
+        for (let j = i + 1; j < n; j++)v -= a[i][j] * x[j]; x[i] = v / a[i][i]
+    } return x
+}
+function condition(A) {
+    let a = A.map(r => r.slice()), n = a.length;
+    for (let k = 0; k < 100; k++) {
+        let p = 0, q = 1;
+        for (let i = 0; i < n; i++)for (let j = i + 1; j < n; j++)
+            if (Math.abs(a[i][j]) > Math.abs(a[p][q])) [p, q] = [i, j];
+        if (Math.abs(a[p][q]) < 1e-15) break; let theta = .5 * Math.atan2(2 * a[p][q], a[q][q] - a[p][p]), c = Math.cos(theta), s = Math.sin(theta), app = a[p][p], aqq = a[q][q], apq = a[p][q];
+        for (let i = 0; i < n; i++)if (i !== p && i !== q) { let x = a[i][p], y = a[i][q]; a[i][p] = a[p][i] = c * x - s * y; a[i][q] = a[q][i] = s * x + c * y } a[p][p] = c * c * app - 2 * s * c * apq + s * s * aqq; a[q][q] = s * s * app + 2 * s * c * apq + c * c * aqq; a[p][q] = a[q][p] = 0
+    } let eig = a.map((r, i) => r[i]);
+    return Math.max(...eig) / Math.min(...eig)
+}
+
+function simulate({ y0, y1, y2, bias, threshold, tolerance, scenario }) { let times = scenario === 'mal' ? [0, .02, .04] : [0, 1, 2], observations = [y0, y1, y2, bias]; if (!observations.concat([threshold, tolerance]).every(Number.isFinite) || tolerance < 1e-10 || tolerance > .1) throw Error('Introduce números válidos y una tolerancia entre 10⁻¹⁰ y 0,1.'); let C = times.map(t => [1, t, t * t, 1]); C.push([0, 0, 0, 1]); let A = Array.from({ length: 4 }, (_, i) => Array.from({ length: 4 }, (_, j) => C.reduce((s, r) => s + r[i] * r[j], 0))), b = Array.from({ length: 4 }, (_, i) => C.reduce((s, r, k) => s + r[i] * observations[k], 0)), ref = direct(C, observations), results = []; function record(name, x, it, history = []) { let residual = norm(mv(A, x).map((v, i) => v - b[i])), error = norm(x.map((v, i) => v - ref[i])); results.push({ name, x, it, residual, error, relativeError: norm(ref) === 0 ? null : error / norm(ref), history, converged: Number.isFinite(residual) && residual <= tolerance }) } record('LU (pivoteo)', direct(A, b), 0); for (const name of ['Jacobi', 'Gauss-Seidel']) { let x = [0, 0, 0, 0], it = 0, history = []; for (; it < 1000; it++) { let old = x.slice(); for (let i = 0; i < 4; i++) { let sum = 0; for (let j = 0; j < 4; j++)if (j !== i) sum += A[i][j] * (name === 'Jacobi' ? old[j] : x[j]); x[i] = (b[i] - sum) / A[i][i] } if (!x.every(Number.isFinite)) { it++; break } let residual = norm(mv(A, x).map((v, i) => v - b[i])), error = norm(x.map((v, i) => v - ref[i])); if (!Number.isFinite(residual) || !Number.isFinite(error)) { it++; break } history.push({ iteration: it + 1, x: x.slice(), residual, error }); if (residual <= tolerance) { it++; break } } record(name, x, it, history) } let x = [0, 0, 0, 0], r = b.slice(), p = r.slice(), rr = dot(r, r), it = 0, history = []; while (it < 1000 && Math.sqrt(rr) > tolerance) { let Ap = mv(A, p), den = dot(p, Ap); if (!Number.isFinite(den) || den <= 0) break; let step = rr / den; x = x.map((v, i) => v + step * p[i]); r = r.map((v, i) => v - step * Ap[i]); let next = dot(r, r); p = r.map((v, i) => v + (next / rr) * p[i]); rr = next; it++; history.push({ iteration: it, x: x.slice(), residual: norm(mv(A, x).map((v, i) => v - b[i])), error: norm(x.map((v, i) => v - ref[i])) }) } record('Gradiente conjugado', x, it, history); let [d, a, beta] = ref, delta = threshold - d, crossing = null; if (delta <= 0) crossing = 0; else if (beta > 0 && a >= 0) crossing = 2 * delta / (a + Math.sqrt(a * a + 4 * beta * delta)); else if (beta === 0 && a > 0) crossing = delta / a; return { ref, results, condition: condition(A), crossing, times, A, b } }
+
+
+Object.assign(exports,load("numerics.js"));
+Object.assign(exports,{direct,simulate});
+},
+"history-store.js":(exports,load)=>{
+// Almacenamiento local normalizado conforme al DER. Transacción atómica IndexedDB.
+const {CASES, SCENARIOS, VERSION, presetInputs} = load("experiments.js");
+const tables=['usuario','caso_estudio','escenario','simulacion','ejecucion_metodo','iteracion_resultado','resultado_resumen'];
+const req=r=>new Promise((resolve,reject)=>{r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+function database() {
+  return new Promise((resolve,reject)=>{
+    const open=indexedDB.open('simtele-risk-der-v3',1);
+    open.onupgradeneeded=()=>{for(const name of tables) open.result.createObjectStore(name,{keyPath:'id',autoIncrement:true});};
+    open.onsuccess=()=>resolve(open.result);open.onerror=()=>reject(open.error);
+  });
+}
+const clean=value=>JSON.parse(JSON.stringify(value,(_k,v)=>typeof v==='number'&&!Number.isFinite(v)?String(v):v));
+async function saveExperiment(report) {
+  const db=await database();
+  try {return await new Promise((resolve,reject)=>{
+    const tx=db.transaction(tables,'readwrite'),s=Object.fromEntries(tables.map(t=>[t,tx.objectStore(t)])); let id;
+    tx.oncomplete=()=>resolve(id);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Guardado cancelado.'));
+    const ci=Object.keys(CASES).indexOf(report.caso)+1,ei=(ci-1)*3+Object.keys(SCENARIOS).indexOf(report.scenario)+1;
+    s.usuario.put({id:1,nombre:'Participante local'});
+    s.caso_estudio.put({id:ci,nombre:CASES[report.caso],version_modelo:VERSION});
+    s.escenario.put({id:ei,caso_id:ci,tipo:report.scenario,descripcion:SCENARIOS[report.scenario],parametros_base_json:presetInputs(report.caso,report.scenario),fuente_datos:'Datos sintéticos del laboratorio'});
+    const sr=s.simulacion.add({usuario_id:1,escenario_id:ei,caso:report.caso,fecha:new Date().toISOString(),parametros_entrada_json:report.inputs,version_modelo:report.version,estado:'guardado'});
+    sr.onsuccess=()=>{id=sr.result;for(const m of report.methods){
+      const er=s.ejecucion_metodo.add({simulacion_id:id,metodo:m.name,tolerancia:report.inputs.tolerance,paso:report.inputs.h??null,max_iteraciones:/Jacobi|Gauss|Gradiente|Bisección|Newton \(tiempo\)|Secante/.test(m.name)?1000:null,convergio:m.converged,tiempo_ms:null});
+      er.onsuccess=()=>{const eid=er.result;
+        for(const [i,row] of (m.history||[]).entries()) s.iteracion_resultado.add(clean({ejecucion_id:eid,numero:i+1,aproximacion_json:row,residual:row.residual??null,error_absoluto:row.error??null,error_relativo:null}));
+        s.resultado_resumen.add(clean({ejecucion_id:eid,valor_json:m.value,referencia_json:m.reference,metricas_error_json:{absolute:m.errorAbs,relative:m.errorRel,residual:m.residuo},interpretacion:report.conclusions.numerical+'\n'+report.conclusions.problem,metodo_snapshot:m}));
+      };
+    }};
+  });}finally{db.close();}
+}
+async function listExperiments() {
+  const db=await database();try{return (await req(db.transaction('simulacion').objectStore('simulacion').getAll())).sort((a,b)=>b.id-a.id);}finally{db.close();}
+}
+async function loadExperiment(id) {
+  const db=await database();
+  try {
+    // Un único snapshot de lectura evita mezclar versiones entre consultas.
+    const tx=db.transaction(tables,'readonly');
+    const [simulation,executions,summaries]=await Promise.all([req(tx.objectStore('simulacion').get(id)),req(tx.objectStore('ejecucion_metodo').getAll()),req(tx.objectStore('resultado_resumen').getAll())]);
+    if(!simulation) throw Error('Experimento no encontrado.');
+    const ids=new Set(executions.filter(e=>e.simulacion_id===id).map(e=>e.id));
+    return {simulation,methods:summaries.filter(s=>ids.has(s.ejecucion_id)).map(s=>s.metodo_snapshot)};
+  }finally{db.close();}
+}
+async function tableCounts() {
+  const db=await database();try{const tx=db.transaction(tables);return Object.fromEntries(await Promise.all(tables.map(async name=>[name,await req(tx.objectStore(name).count())])));}finally{db.close();}
+}
+
+Object.assign(exports,{saveExperiment,listExperiments,loadExperiment,tableCounts});
+}
+};
+const cache={};function load(id){if(cache[id])return cache[id];const exports=cache[id]={};modules[id](exports,load);return exports;}
+try{load("validacion.js");}catch(error){console.error(error);const status=document.getElementById('suite-status')||document.getElementById('app-load-status');if(status){status.hidden=false;status.textContent='No se pudo iniciar la página: '+error.message;}}
+})();

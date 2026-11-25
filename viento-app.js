@@ -1,3 +1,8 @@
+import { mountCloudHistory } from './cloud-history.js';
+import { renderDemo } from './demo-scenes.js';
+import { PRESETS, experiment } from './experiments.js';
+import { historyTable, lineChart } from './render.js';
+import { mountLocalHistory } from './local-history-ui.js';
 import { simulateViento } from './math.js';
 import { database } from './db.js';
 
@@ -6,20 +11,7 @@ const ids = ['m', 'c', 'k', 'F', 'x0', 'v0-vin', 'tol-vin', 'h-vin'];
 let last = null;
 const fmt = n => Number.isFinite(n) ? (Math.abs(n) > 1e5 || Math.abs(n) < .001 && n !== 0 ? n.toExponential(2) : n.toFixed(3)) : '—';
 
-const presets = {
-  normal: {
-    values: [1000, 500, 20000, 1000, 0, 0, .000001, .01],
-    desc: 'Fuerza y amortiguamiento nominales.'
-  },
-  estres: {
-    values: [1000, 200, 20000, 2000, 0, 0, .000001, .01],
-    desc: 'Mayor fuerza externa o menor amortiguamiento.'
-  },
-  mal: {
-    values: [1000, 10, 20000, 1000, 0, 0, .000001, .01],
-    desc: 'Amortiguamiento muy bajo; respuesta muy sensible.'
-  }
-};
+const presets = PRESETS.viento;
 
 function absError(approx, exact) {
   return Math.abs(approx - exact);
@@ -50,34 +42,8 @@ function inputsVin() {
 }
 
 function drawChartVin(res) {
-  const svg = $('chart-vin');
-  const { t, x, v } = res.grafica;
-  const width = 600;
-  const height = 220;
-  const pad = 40;
-
-  const tMax = Math.max(...t);
-  const xMax = Math.max(...x.map(Math.abs), 1);
-  const vMax = Math.max(...v.map(Math.abs), 1);
-  const yMax = Math.max(xMax, vMax);
-
-  const scaleX = (ti) => pad + (ti / tMax) * (width - 2 * pad);
-  const scaleY = (val) => height / 2 - (val / yMax) * (height / 2 - pad);
-
-  let ptsX = t.map((ti, i) => `${scaleX(ti)},${scaleY(x[i])}`).join(' ');
-  let ptsV = t.map((ti, i) => `${scaleX(ti)},${scaleY(v[i])}`).join(' ');
-  const xCruce = scaleY(0);
-
-  svg.innerHTML = `
-    <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#333" stroke-width="1"/>
-    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#333" stroke-width="1"/>
-    <polyline fill="none" stroke="#2e7d32" stroke-width="2" points="${ptsX}"/>
-    <polyline fill="none" stroke="#c62828" stroke-width="2" points="${ptsV}"/>
-    <line x1="${pad}" y1="${xCruce}" x2="${width - pad}" y2="${xCruce}" stroke="#993" stroke-dasharray="4 4"/>
-    <text x="${pad}" y="${height - 6}" fill="#333" font-size="11">0</text>
-    <text x="${width - 40}" y="${height - 6}" fill="#333" font-size="11">${fmt(tMax)} s</text>
-    <text x="${pad + 5}" y="${pad - 5}" fill="#333" font-size="11">valor</text>
-  `;
+  const {t,x,tRef,xRef}=res.grafica;
+  lineChart($('chart-vin'),[{points:t.map((t,i)=>({x:t,y:x[i]}))},{points:tRef.map((t,i)=>({x:t,y:xRef[i]}))}],{xLabel:'Tiempo (s)',yLabel:'Desplazamiento (m)',log:false});
 }
 
 function fmtError(v) {
@@ -122,17 +88,13 @@ function renderResultados(res) {
   const metodos = resultados.filter(r => r.magnitud === 'amplitud');
   const integraciones = resultados.filter(r => r.magnitud && r.magnitud.startsWith('integral'));
 
-  $('method-results-vin').innerHTML = metodos.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió / precisión insuficiente'}</td><td>${fmt(r.value)}</td><td>${r.magnitud}</td><td>${fmtError(r.residuo)}</td><td>${fmtError(r.errorAbs)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td></tr>`).join('');
+  $('method-results-vin').innerHTML = metodos.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Calculado / criterio satisfecho' : 'No convergió / precisión insuficiente'}</td><td>${fmt(r.value)}</td><td>${r.magnitud}</td><td>${fmtError(r.residuo)}</td><td>${fmtError(r.errorAbs)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td></tr>`).join('');
 
   $('integ-results-vin').innerHTML = integraciones.map(r => `<tr><td>${r.name}</td><td>${fmt(r.value)}</td><td>${r.magnitud}</td><td>${fmtError(r.residuo)}</td><td>${fmtError(r.errorAbs)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td></tr>`).join('');
 
-  $('conclusion-vin').innerHTML = `
-    <h3>Conclusión numérica</h3>
-    <p>RK4 y RK2 integran la EDO con pequeña desviación frente a la referencia de paso fino. Los métodos de integración acumulan |x(t)| y x(t)² con precisión razonable.</p>
-    <h3>Conclusión del problema</h3>
-    <p>Con m=${fmt(res.entradas.m)} kg, c=${fmt(res.entradas.c)} N·s/m, k=${fmt(res.entradas.k)} N/m y F=${fmt(res.entradas.F)} N, la amplitud máxima estimada es ≈${fmt(ref.xMax)} m. Un amortiguamiento muy bajo (mal condicionado) hace la respuesta muy sensible; esto es sensibilidad matemática, no riesgo físico por sí solo.</p>
-  `;
-
+  const conclusions = experiment('viento', res.scenario, res.entradas).conclusions;
+  $('conclusion-vin').innerHTML = `<h3>Conclusión numérica</h3><p>${conclusions.numerical}</p><h3>Conclusión del problema</h3><p>${conclusions.problem}</p>`;
+  renderDemo('viento', res, res.entradas);
   drawChartVin(res);
   drawChart2Vin(res);
   renderIteracionVin(res);
@@ -163,26 +125,7 @@ function renderSensitivityVin(res) {
   `;
 }
 
-function renderIteracionVin(res) {
-  const filas = res.resultados.map(r => {
-    const detalle = r.history ? r.history.map(h => `
-      <tr>
-        <td>${h.iteration}</td>
-        ${h.x ? h.x.map(value => `<td>${fmt(value)}</td>`).join('') : ''}
-        <td>${fmt(h.residual)}</td>
-        <td>${fmt(h.error)}</td>
-      </tr>
-    `).join('') : '';
-
-    if (detalle) {
-      return `<details><summary>${r.name} · ${r.history.length} iteraciones registradas ${r.converged ? '· convergió' : '· no convergió'}</summary><div class="table-wrap"><table><thead><tr><th>ITERACIÓN</th><th>x</th><th>v</th><th>RESIDUO</th><th>ERROR ABS.</th></tr></thead><tbody>${detalle}</tbody></table></div></details>`;
-    }
-
-    return `<details><summary>${r.name} · Resultado directo (sin iteraciones intermedias) ${r.converged ? '· convergió' : '· no convergió'}</summary><div class="table-wrap"><table><thead><tr><th>MÉTODO</th><th>VALOR</th><th>MAGNITUD</th><th>ERROR ABS.</th><th>ERROR REL.</th><th>ERROR %</th></tr></thead><tbody><tr><td>${r.name}</td><td>${fmt(r.value)}</td><td>${r.magnitud}</td><td>${fmtError(r.errorAbs)}</td><td>${fmtError(r.errorRel)}</td><td>${fmtError(r.errorPct)}</td></tr></tbody></table></div></details>`;
-  }).join('');
-
-  $('iteration-results-vin').innerHTML = filas;
-}
+function renderIteracionVin(res) { $('iteration-results-vin').innerHTML = historyTable(res.resultados); }
 
 function renderEscenariosVin(res) {
   const scenarioNames = { normal: 'Normal', estres: 'Estrés', mal: 'Mal condicionado' };
@@ -253,20 +196,24 @@ $('run-vin').addEventListener('click', () => {
   }
 });
 
-$('scenario-vin').dispatchEvent(new Event('change'));
+const requestedScenario=new URLSearchParams(globalThis.location?.search || '').get('scenario'); if (requestedScenario && presets[requestedScenario]) $('scenario-vin').value=requestedScenario; $('scenario-vin').dispatchEvent(new Event('change'));
 
 // ---------- Auth, guardar y historial (reutilizado de app.js) ----------
 const msg = t => $('account-message').textContent = t;
 async function user() { let db = await database(); let { data, error } = await db.auth.getUser(); if (error) return null; return data.user }
-async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth(); }
+async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth().catch(() => {}); }
 // No hay inputs en el navbar, solo botones que hacen scroll
 $('nav-signin').onclick = () => { document.getElementById('cuenta').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 $('nav-signup').onclick = () => { document.getElementById('cuenta').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 async function updateNavAuth() { let u = await user(); if (u) { $('nav-signout').style.display = ''; $('nav-signin').style.display = 'none'; $('nav-signup').style.display = 'none'; } else { $('nav-signout').style.display = 'none'; $('nav-signin').style.display = ''; $('nav-signup').style.display = ''; } }
-$('nav-signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth(); } catch (e) { msg(e.message) } };
+$('nav-signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth().catch(() => {}); } catch (e) { msg(e.message) } };
 $('signin').onclick = () => auth(false).catch(e => msg(e.message));
 $('signup').onclick = () => auth(true).catch(e => msg(e.message));
-$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth(); } catch (e) { msg(e.message) } };
-$('save').onclick = async () => { try { runVin(); if (!last) return; let u = await user(); if (!u) { msg('Inicia sesión para guardar.'); return } let db = await database(); let { error } = await db.from('simulaciones').insert({ user_id: u.id, caso: 'viento', escenario: last.entradas.scenario, entradas: last.entradas, resultados: last.resultados }); msg(error ? error.message : 'Simulación guardada.') } catch (e) { msg(e.message) } };
-$('history').onclick = async () => { try { if (!await user()) { msg('Inicia sesión para consultar el historial.'); return } let db = await database(); let { data, error } = await db.from('simulaciones').select('id,caso,escenario,entradas,creado_en').eq('caso', 'viento').order('creado_en', { ascending: false }).limit(30); if (error) { msg(error.message); return } let list = $('history-list'); list.replaceChildren(); data.forEach(row => { let li = document.createElement('li'), button = document.createElement('button'); button.textContent = `${new Date(row.creado_en).toLocaleString('es-BO')} · ${row.escenario} · Abrir y repetir`; button.onclick = () => { $('scenario-vin').value = row.entradas.scenario; $('scenario-vin-desc').textContent = presets[row.entradas.scenario].desc; ids.forEach(id => $(id).value = row.entradas[id]); runVin(); msg('Simulación recuperada y repetida con el modelo actual.') }; li.append(button); list.append(li) }); msg(data.length ? `${data.length} simulaciones encontradas.` : 'Aún no hay simulaciones guardadas.') } catch (e) { msg(e.message) } };
-updateNavAuth();
+$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); $('history-list').replaceChildren(); updateNavAuth().catch(() => {}); } catch (e) { msg(e.message) } };
+updateNavAuth().catch(() => {});
+
+
+mountLocalHistory('viento', inputsVin, v => { $('scenario-vin').value=v.scenario; Object.entries({"m": "m", "c": "c", "k": "k", "F": "F", "x0": "x0", "v0": "v0-vin", "tolerance": "tol-vin", "h": "h-vin"}).forEach(([key,id])=>$(id).value=v[key]); $('scenario-vin-desc').textContent=presets[v.scenario].desc; runVin(); });
+
+$('restore-viento').onclick = () => { $('scenario-vin').value='normal'; $('scenario-vin').dispatchEvent(new Event('change')); };
+mountCloudHistory('viento', inputsVin, v => { $('scenario-vin').value=v.scenario; Object.entries({"m": "m", "c": "c", "k": "k", "F": "F", "x0": "x0", "v0": "v0-vin", "tolerance": "tol-vin", "h": "h-vin"}).forEach(([key,id])=>$(id).value=v[key]); $('scenario-vin-desc').textContent=presets[v.scenario].desc; runVin(); });

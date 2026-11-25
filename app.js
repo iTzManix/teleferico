@@ -1,15 +1,13 @@
+import { mountCloudHistory } from './cloud-history.js';
+import { renderDemo } from './demo-scenes.js';
+import { PRESETS, experiment } from './experiments.js';
+import { historyTable } from './render.js';
+import { mountLocalHistory } from './local-history-ui.js';
 import { simulate } from './math.js';
 import { database } from './db.js';
 const $ = id => document.getElementById(id), ids = ['y0', 'y1', 'y2', 'bias', 'threshold', 'tolerance']; let last = null; const fmt = n => Number.isFinite(n) ? (Math.abs(n) > 1e5 || Math.abs(n) < .001 && n !== 0 ? n.toExponential(2) : n.toFixed(3)) : '—';
 
-const presets = {
-  normal: {
-    values: [13, 15.5, 19, 3, 60, .000001],
-    desc: 'Lecturas en los meses 0, 1 y 2: crecimiento moderado después de una inspección.'
-  },
-  estres: { values: [18, 23, 30, 3, 60, .000001], desc: 'Lecturas en los meses 0, 1 y 2: deterioro hipotéticamente más acelerado.' },
-  mal: { values: [13, 13.0402, 13.0808, 3, 60, .000001], desc: 'Lecturas en los meses 0, 0,02 y 0,04. Los tiempos muy próximos hacen sensible la calibración.' }
-};
+const presets = PRESETS.deterioro;
 
 function inputs() { return Object.fromEntries([...ids.map(id => [id, $(id).value.trim() === '' ? NaN : Number($(id).value)]), ['scenario', $('scenario').value]]) }
 
@@ -74,12 +72,12 @@ function comparisons(res) {
 }
 function run() {
   try {
-    let v = inputs(), res = simulate(v); last = { entradas: v, resultados: res }; $('error').textContent = ''; $('crossing').textContent = res.crossing === null ? 'No calculado' : fmt(res.crossing); $('initial').textContent = fmt(res.ref[0]); $('condition').textContent = fmt(res.condition); $('explanation').textContent = res.crossing === 0 ? 'El índice inicial ya alcanza o supera el umbral.' : res.crossing === null ? 'La curva obtenida no cumple las hipótesis de crecimiento del cálculo de umbral. Revisa los datos.' : `Con estas lecturas, el modelo estima el umbral en ${fmt(res.crossing)} meses. α = ${fmt(res.ref[1])} y β = ${fmt(res.ref[2])}; 
-un crecimiento mayor puede adelantar la inspección. Es una proyección hipotética, no un diagnóstico.`; $('method-results').innerHTML = res.results.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió / precisión insuficiente'}</td><td>${r.it || 'Directo'}</td><td>${fmt(r.residual)}</td><td>${fmt(r.error)}</td><td>${fmt(r.relativeError)}</td><td>${r.relativeError === null ? '—' : fmt(r.relativeError * 100) + '%'}</td></tr>`).join(''); draw(res, v.threshold); draw2(res); comparisons(res); renderSensitivityDet(); $('output-status').textContent = 'Simulación actualizada · revisa la gráfica y la comparación de métodos.'; return true
+    let v = inputs(), res = simulate(v); last = { entradas: v, resultados: res }; $('error').textContent = ''; $('crossing').textContent = res.crossing === null ? 'No calculado' : fmt(res.crossing); $('initial').textContent = fmt(res.ref[0]); $('condition').textContent = fmt(res.condition); $('explanation').textContent = res.crossing === 0 ? 'El índice inicial ya alcanza o supera el umbral.' : res.crossing === null ? 'La curva obtenida no cumple las hipótesis de crecimiento del cálculo de umbral. Revisa los datos.' : `Con estas lecturas, el modelo estima el umbral en ${fmt(res.crossing)} meses. α = ${fmt(res.ref[1])} y β = ${fmt(res.ref[2])};
+un crecimiento mayor puede adelantar la inspección. Es una proyección hipotética, no un diagnóstico.`; $('method-results').innerHTML = res.results.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió / precisión insuficiente'}</td><td>${r.it || 'Directo'}</td><td>${fmt(r.residual)}</td><td>${fmt(r.error)}</td><td>${fmt(r.relativeError)}</td><td>${r.relativeError === null ? '—' : fmt(r.relativeError * 100) + '%'}</td></tr>`).join(''); draw(res, v.threshold); renderDemo('deterioro',res,v); draw2(res); comparisons(res); renderSensitivityDet(); $('output-status').textContent = 'Simulación actualizada · revisa la gráfica y la comparación de métodos.'; return true
   } catch (e) { last = null; $('error').textContent = e.message; $('output-status').textContent = 'No se pudo calcular. Corrige las entradas para actualizar los resultados.';['crossing', 'initial', 'condition'].forEach(id => $(id).textContent = '—'); $('explanation').textContent = ''; $('chart').replaceChildren(); $('chart2').replaceChildren(); ['method-results', 'parameter-results', 'iteration-results', 'scenario-results', 'sensitivity-det'].forEach(id => $(id).replaceChildren()); return false }
 }
 
-$('scenario').addEventListener('change', () => { let p = presets[$('scenario').value]; ids.forEach((id, i) => $(id).value = p.values[i]); $('scenario-desc').textContent = p.desc; run() }); $('run').addEventListener('click', () => { if (run()) { $('output').focus({ preventScroll: true }); $('output').scrollIntoView({ behavior: 'smooth', block: 'start' }) } }); $('scenario').dispatchEvent(new Event('change'));
+$('scenario').addEventListener('change', () => { let p = presets[$('scenario').value]; ids.forEach((id, i) => $(id).value = p.values[i]); $('scenario-desc').textContent = p.desc; run() }); $('run').addEventListener('click', () => { if (run()) { $('output').focus({ preventScroll: true }); $('output').scrollIntoView({ behavior: 'smooth', block: 'start' }) } }); const requestedScenario=new URLSearchParams(globalThis.location?.search || '').get('scenario'); if (requestedScenario && presets[requestedScenario]) $('scenario').value=requestedScenario; $('scenario').dispatchEvent(new Event('change'));
 
 // ---------- Sincronización navbar ↔ panel de cuenta ----------
 // No hay inputs en el navbar, solo botones que hacen scroll
@@ -89,11 +87,11 @@ $('nav-signout').onclick = async () => { try { let db = await database(); let { 
 // Botones del panel HISTORIAL PERSONAL (igual que en detencion-app.js)
 $('signin').onclick = () => auth(false).catch(e => msg(e.message));
 $('signup').onclick = () => auth(true).catch(e => msg(e.message));
-$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); clearHistory(); updateNavAuth(); } catch (e) { msg(e.message) } };
+$('signout').onclick = async () => { try { let db = await database(); let { error } = await db.auth.signOut(); msg(error ? error.message : 'Sesión cerrada.'); clearHistory(); updateNavAuth().catch(() => {}); } catch (e) { msg(e.message) } };
 function clearHistory() { ['history-list', 'account-history-list'].forEach(id => { const el = $(id); if (el) el.replaceChildren(); }); }
 // Actualizar visibilidad de botones según sesión
 async function updateNavAuth() { let u = await user(); if (u) { $('nav-signout').style.display = ''; $('nav-signin').style.display = 'none'; $('nav-signup').style.display = 'none'; } else { $('nav-signout').style.display = 'none'; $('nav-signin').style.display = ''; $('nav-signup').style.display = ''; } }
-updateNavAuth();
+updateNavAuth().catch(() => {});
 
 function renderSensitivityDet() {
   try {
@@ -119,6 +117,11 @@ function renderSensitivityDet() {
   }
 }
 
-const msg = t => document.querySelectorAll('[data-msg]').forEach(el => el.textContent = t); async function user() { let db = await database(); let { data, error } = await db.auth.getUser(); if (error) return null; return data.user } async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth(); }
+const msg = t => document.querySelectorAll('[data-msg]').forEach(el => el.textContent = t); async function user() { let db = await database(); let { data, error } = await db.auth.getUser(); if (error) return null; return data.user } async function auth(signup) { let email = $('email').value, password = $('password').value; if (!email || !password) { msg('Escribe tu correo y contraseña.'); return } let db = await database(); let { data, error } = signup ? await db.auth.signUp({ email, password }) : await db.auth.signInWithPassword({ email, password }); msg(error ? error.message : signup && !data.session ? 'Revisa tu correo para confirmar la cuenta antes de entrar.' : 'Sesión iniciada.'); $('password').value = ''; updateNavAuth().catch(() => {}); }
 // Guardar e historial
-$('save').onclick = async () => { try { run(); if (!last) return; let u = await user(); if (!u) { msg('Inicia sesión para guardar.'); return } let db = await database(); let { error } = await db.from('simulaciones').insert({ user_id: u.id, caso: 'deterioro', escenario: last.entradas.scenario, entradas: last.entradas, resultados: last.resultados }); msg(error ? error.message : 'Simulación guardada.') } catch (e) { msg(e.message) } }; $('history').onclick = async () => { try { if (!await user()) { msg('Inicia sesión para consultar el historial.'); return } let db = await database(); let { data, error } = await db.from('simulaciones').select('id,escenario,entradas,creado_en').order('creado_en', { ascending: false }).limit(30); if (error) { msg(error.message); return } let list = $('history-list'), list2 = $('account-history-list'); list.replaceChildren(); if (list2) list2.replaceChildren(); data.forEach(row => { let li = document.createElement('li'), button = document.createElement('button'); button.textContent = `${new Date(row.creado_en).toLocaleString('es-BO')} · ${row.escenario} · Abrir y repetir`; button.onclick = () => { $('scenario').value = row.entradas.scenario; $('scenario-desc').textContent = presets[row.entradas.scenario].desc; ids.forEach(id => $(id).value = row.entradas[id]); run(); msg('Simulación recuperada y repetida con el modelo actual.') }; li.append(button); list.append(li); if (list2) { let li2 = li.cloneNode(true); li2.querySelector('button').onclick = button.onclick; list2.append(li2) } }); msg(data.length ? `${data.length} simulaciones encontradas.` : 'Aún no hay simulaciones guardadas.') } catch (e) { msg(e.message) } };
+
+
+mountLocalHistory('deterioro', inputs, v => { $('scenario').value=v.scenario; ids.forEach(id=>$(id).value=v[id]); $('scenario-desc').textContent=presets[v.scenario].desc; run(); });
+
+$('restore-deterioro').onclick = () => { $('scenario').value='normal'; $('scenario').dispatchEvent(new Event('change')); };
+mountCloudHistory('deterioro', inputs, v => { $('scenario').value=v.scenario; ids.forEach(id=>$(id).value=v[id]); $('scenario-desc').textContent=presets[v.scenario].desc; run(); });

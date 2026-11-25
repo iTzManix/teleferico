@@ -1,0 +1,142 @@
+{
+  "project": "Metodos",
+  "project_id": "ucgkylgsvcymepplvias",
+  "verified_at": "2026-11-25T15:01:06.358Z",
+  "migration": "simtele_der_normalizado_conserva_historial",
+  "migration_applied": true,
+  "migration_sha256": "7b4fddb95bd9d296e161dc57d3edf672693d47fd195666ee732b1464d4faa87a",
+  "browser_login_test": "Pendiente: las pruebas SQL usan contextos de rol/JWT; no equivalen al ciclo de sesión en navegador.",
+  "existing_security_advisories": [
+    {
+      "name": "rls_auto_enable expuesta como SECURITY DEFINER",
+      "pre_existing": true,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable"
+    },
+    {
+      "name": "Protección de contraseñas filtradas desactivada",
+      "pre_existing": true,
+      "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+    }
+  ],
+  "github_pushed": false,
+  "counts": {
+    "rls": [
+      {
+        "tabla": "caso_estudio",
+        "activo": true
+      },
+      {
+        "tabla": "ejecucion_metodo",
+        "activo": true
+      },
+      {
+        "tabla": "escenario",
+        "activo": true
+      },
+      {
+        "tabla": "iteracion_resultado",
+        "activo": true
+      },
+      {
+        "tabla": "resultado_resumen",
+        "activo": true
+      },
+      {
+        "tabla": "simulacion",
+        "activo": true
+      },
+      {
+        "tabla": "usuario",
+        "activo": true
+      }
+    ],
+    "casos": 4,
+    "usuarios": 2,
+    "resumenes": 86,
+    "escenarios": 12,
+    "ejecuciones": 86,
+    "iteraciones": 8326,
+    "legacy_count": 18,
+    "simulaciones": 18,
+    "legacy_fingerprint": "f843afa8c84543c6415795c404e8501f",
+    "snapshot_mismatches": 0
+  },
+  "post_test": {
+    "resumenes": 86,
+    "anon_tables": [
+      {
+        "insert": false,
+        "nombre": "ejecucion_metodo",
+        "select": false
+      },
+      {
+        "insert": false,
+        "nombre": "iteracion_resultado",
+        "select": false
+      },
+      {
+        "insert": false,
+        "nombre": "resultado_resumen",
+        "select": false
+      },
+      {
+        "insert": false,
+        "nombre": "simulacion",
+        "select": false
+      },
+      {
+        "insert": false,
+        "nombre": "usuario",
+        "select": false
+      }
+    ],
+    "ejecuciones": 86,
+    "iteraciones": 8326,
+    "legacy_count": 18,
+    "simulaciones": 18,
+    "rpc_privileges": [
+      {
+        "anon": false,
+        "nombre": "simtele_guardar",
+        "definer": false,
+        "authenticated": true
+      },
+      {
+        "anon": false,
+        "nombre": "simtele_importar_anteriores",
+        "definer": false,
+        "authenticated": true
+      },
+      {
+        "anon": false,
+        "nombre": "simtele_listar",
+        "definer": false,
+        "authenticated": true
+      },
+      {
+        "anon": false,
+        "nombre": "simtele_numero",
+        "definer": false,
+        "authenticated": true
+      },
+      {
+        "anon": false,
+        "nombre": "simtele_recuperar",
+        "definer": false,
+        "authenticated": true
+      }
+    ],
+    "legacy_fingerprint": "f843afa8c84543c6415795c404e8501f"
+  },
+  "remote_tests": {
+    "nota": "La prueba real de sesión en navegador es independiente.",
+    "estado": "PASS: todas las aserciones previas se completaron y las escrituras se revirtieron",
+    "escenarios": 12,
+    "aislamiento": "dos usuarios y anon"
+  },
+  "migration_version": "20261125145755",
+  "local_tests": {
+    "passed": 29,
+    "failed": 0
+  }
+}

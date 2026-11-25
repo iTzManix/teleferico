@@ -12,17 +12,17 @@
         href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-</head>
+<link rel="stylesheet" href="validacion.css"></head>
 
 <body>
     <header><a class="brand" href="index.html#inicio"><span class="brandmark">S<span>·</span></span> SIMTELE <small>/
                 RISK</small></a>
         <nav aria-label="Módulos"><a href="detencion.html">Detención</a><a href="deterioro.html">Deterioro</a><a
-                href="viento.html">Viento</a><a href="sensores.html">Sensores</a></nav>
+                href="viento.html">Viento</a><a href="sensores.html">Sensores</a><a href="validacion.html">Validación S3</a></nav>
         <div class="nav-auth"><button id="nav-signin">Ingresar</button><button id="nav-signup">Crear cuenta</button><button id="nav-signout" style="display:none">Salir</button></div>
         <a class="navcta" href="deterioro.html#simulador">Abrir simulador <span>↗</span></a>
     </header>
-    <main>
+    <p id="app-load-status" role="alert" hidden></p><main>
         <div class="shell">
             <div class="module-back"><a href="index.html#casos">← Todos los módulos</a></div>
             <section id="deterioro" class="section article">
@@ -137,7 +137,7 @@
                                     step="any" value="60"></label><label>Tolerancia <input id="tolerance" type="number"
                                     min="0.0000000001" max="0.1" step="any" value="0.000001"></label></div>
                         <p class="hint">El sesgo proviene de una calibración independiente. El caso mal condicionado usa
-                            tiempos de medición muy próximos; no representa una avería física.</p><button id="run"
+                            tiempos de medición muy próximos; no representa una avería física.</p><button type="button" class="restore-example" id="restore-deterioro">Restaurar ejemplo inicial</button><button id="run"
                             class="button dark">Ejecutar simulación <span>↗</span></button>
                         <p id="error" class="error" role="alert"></p>
                     </div>
@@ -149,7 +149,7 @@
                             <div><small>ÍNDICE INICIAL</small><strong id="initial">—</strong><span>puntos</span></div>
                             <div><small>CONDICIÓN κ₂(A)</small><strong id="condition">—</strong><span>sensibilidad del
                                     sistema</span></div>
-                        </div><svg id="chart" viewBox="0 0 600 220" role="img"
+                        </div><div class="demo-scene" id="demo-deterioro"></div><svg id="chart" viewBox="0 0 600 220" role="img"
                             aria-label="Gráfica del índice de deterioro y el umbral"></svg>
                         <div class="legend"><span>● Índice estimado</span><span>┄ Umbral de inspección</span></div>
                         <p id="explanation" class="result-text" aria-live="polite"></p>
@@ -296,7 +296,7 @@
         <p>Un ejercicio académico de métodos numéricos.<br>Datos hipotéticos · Sin conexión con equipos reales.</p>
         <span>HECHO PARA PREGUNTAR MEJOR ↗</span>
     </footer>
-    <script type="module" src="app.js"></script>
+    <script defer src="assets/app.bundle.js"></script>
 </body>
 
 </html>

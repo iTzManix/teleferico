@@ -364,3 +364,4 @@ npm test
 ---
 
 *Valores numéricos obtenidos ejecutando de forma reproducible las funciones `simulate`, `simulateDetencion`, `simulateViento` y `simulateSensores` de `math.js`, más pruebas manuales de interpolación. Los fallos F1–F9 y P1–P4 se verificaron en las corridas documentadas en este informe.*
+
