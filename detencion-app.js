@@ -1,5 +1,6 @@
 import { mountCloudHistory } from './cloud-history.js';
-import { renderDemo } from './demo-scenes.js';
+import { bindSimulationInputs } from './live-inputs.js';
+import { clearDemo, renderDemo } from './demo-scenes.js';
 import { PRESETS, experiment } from './experiments.js';
 import { historyTable, lineChart } from './render.js';
 import { mountLocalHistory } from './local-history-ui.js';
@@ -54,7 +55,7 @@ function drawChart2Det(res) {
   const height = 220;
   const pad = 50;
   const metodos = res.resultados.filter(m => m.unit === 'm');
-  const maxErr = Math.max(...metodos.map(m => m.errorAbs || 0), 1);
+  const maxErr = Math.max(...metodos.map(m => m.errorAbs));
 
   let bars = '';
   let labels = '';
@@ -63,6 +64,7 @@ function drawChart2Det(res) {
     const barH = maxErr > 0 ? (m.errorAbs / maxErr) * (height - 2 * pad) : 0;
     const color = m.name.includes('RK') ? '#2e7d32' : m.name.includes('Trapecio') || m.name.includes('Simpson') || m.name.includes('Romberg') ? '#1565c0' : '#c62828';
     bars += `<rect x="${x - 10}" y="${height - pad - barH}" width="20" height="${barH}" fill="${color}"/>`;
+    bars += `<text x="${x}" y="${height-pad-barH-5}" text-anchor="middle" fill="currentColor" font-size="10">${fmt(m.errorAbs)}</text>`;
     labels += `<text x="${x}" y="${height - pad + 16}" fill="#333" font-size="9" text-anchor="middle" transform="rotate(-30, ${x}, ${height - pad + 16})">${m.name.replace(' (distancia)', '').replace(' (tiempo)', '')}</text>`;
   });
 
@@ -76,7 +78,7 @@ function drawChart2Det(res) {
   `;
 }
 
-function renderResultados(res) {
+function renderResultados(res, preserveTime) {
   const { ref, resultados, cruce } = res;
 
   $('t-cero').textContent = fmt(res.cruce.biseccion.root ?? ref.tTotal);
@@ -98,7 +100,7 @@ function renderResultados(res) {
 
   const conclusions = experiment('detencion', res.scenario, res.entradas).conclusions;
   $('conclusion-det').innerHTML = `<h3>Conclusión numérica</h3><p>${conclusions.numerical}</p><h3>Conclusión del problema</h3><p>${conclusions.problem}</p>`;
-  renderDemo('detencion', res, res.entradas);
+  renderDemo('detencion', res, res.entradas, {preserveTime});
   drawChartDet(res);
   drawChart2Det(res);
   renderIteracionDet(res);
@@ -165,16 +167,17 @@ function renderEscenariosDet(res) {
   $('scenario-results-det').innerHTML = filas;
 }
 
-function runDet() {
+const runDet = bindSimulationInputs(ids, calculate);
+function calculate(preserveTime) {
   try {
     const v = inputsDet();
-    if (!v.v0 || !v.a || v.tolerance < 1e-10 || v.tolerance > 0.1 || v.h <= 0) {
-      throw new Error('Introduce valores válidos: v₀ > 0, a > 0, tolerancia entre 10⁻¹⁰ y 0,1, h > 0.');
+    if (v.v0 < 0 || v.a <= 0 || v.tolerance < 1e-10 || v.tolerance > 0.1 || v.h <= 0) {
+      throw new Error('Introduce valores válidos: v₀ ≥ 0, a > 0, tolerancia entre 10⁻¹⁰ y 0,1, h > 0.');
     }
     $('error-det').textContent = '';
     const res = simulateDetencion(v);
     last = { entradas: v, resultados: res };
-    renderResultados(res);
+    renderResultados(res, preserveTime);
     return true;
   } catch (e) {
     last = null;
@@ -182,7 +185,7 @@ function runDet() {
     $('output-status-det').textContent = 'No se pudo calcular. Corrige las entradas.';
     ['t-cero', 'd-total', 't-ref'].forEach(id => $(id).textContent = '—');
     $('explanation-det').textContent = '';
-    $('chart-det').replaceChildren();
+    clearDemo('demo-detencion'); $('chart-det').replaceChildren();
     $('chart2-det').replaceChildren();
     ['method-results-det', 'root-results-det', 'iteration-results-det', 'scenario-results-det', 'sensitivity-det', 'conclusion-det'].forEach(id => $(id).replaceChildren());
     return false;

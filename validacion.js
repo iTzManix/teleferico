@@ -26,7 +26,7 @@ function select(caso,scenario,customReport) {
   $('case-filter').value=caso;$('scenario-filter').value=scenario;
   $('selected-title').textContent=CASES[caso];$('selected-scenario').textContent=SCENARIOS[scenario]+' / MODELO '+selected.version;
   $('open-module').href=caso+'.html?scenario='+scenario+'#simulador';
-  renderDemo(caso,selected.output,selected.inputs,'demo-validacion');
+  renderDemo(caso,selected.output,selected.inputs,{targetId:'demo-validacion'});
   $('inputs').textContent=JSON.stringify(selected.inputs,null,2);$('reference-data').textContent=JSON.stringify(selected.reference,null,2);
   $('reference-kind').textContent=selected.reference.kind;$('reference-check').textContent=selected.referenceVerified?'Control de referencia satisfecho. Consulte las limitaciones y los errores de cada método.':'Revisar el control de referencia de esta ejecución.';
   const s=selected.sensitivity;$('sensitivity-detail').textContent=s.detail;

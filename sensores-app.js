@@ -1,5 +1,6 @@
 import { mountCloudHistory } from './cloud-history.js';
-import { renderDemo } from './demo-scenes.js';
+import { bindSimulationInputs } from './live-inputs.js';
+import { clearDemo, renderDemo } from './demo-scenes.js';
 import { PRESETS, experiment } from './experiments.js';
 import { historyTable } from './render.js';
 import { mountLocalHistory } from './local-history-ui.js';
@@ -47,13 +48,15 @@ function drawChartSen(res) {
   const height = 220;
   const pad = 40;
 
-  const tMax = Math.max(...t);
-  const allY = [...yRef, ...yLag, ...yNew, ...ySpl];
+  const tMin = t[0], tMax = t.at(-1);
+  const { umbral } = res.entradas;
+  const allY = [...yRef, ...yLag, ...yNew, ...ySpl, ...valores];
+  if (Number.isFinite(umbral)) allY.push(umbral);
   const yMin = Math.min(...allY);
   const yMax = Math.max(...allY);
   const yRange = yMax - yMin || 1;
 
-  const scaleX = (ti) => pad + (ti / tMax) * (width - 2 * pad);
+  const scaleX = (ti) => pad + ((ti - tMin) / (tMax - tMin)) * (width - 2 * pad);
   const scaleY = (val) => height - pad - ((val - yMin) / yRange) * (height - 2 * pad);
 
   const line = (pts, stroke) => `<polyline fill="none" stroke="${stroke}" stroke-width="2" points="${pts}"/>`;
@@ -63,10 +66,7 @@ function drawChartSen(res) {
   let ptsNew = t.map((ti, i) => `${scaleX(ti)},${scaleY(yNew[i])}`).join(' ');
   let ptsSpl = t.map((ti, i) => `${scaleX(ti)},${scaleY(ySpl[i])}`).join(' ');
 
-  let ptsNodos = nodos.map((x, i) => {
-    const yi = valores[i];
-    return `${scaleX(x)},${scaleY(yi)}`;
-  }).join(' ');
+  const markers = nodos.map((x, i) => `<circle cx="${scaleX(x)}" cy="${scaleY(valores[i])}" r="3" fill="#333"/>`).join('');
 
   svg.innerHTML = `
     <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#333" stroke-width="1"/>
@@ -75,9 +75,12 @@ function drawChartSen(res) {
     ${line(ptsLag, '#c62828')}
     ${line(ptsNew, '#1565c0')}
     ${line(ptsSpl, '#7b1fa2')}
-    <circle cx="${scaleX(nodos[0])}" cy="${scaleY(valores[0])}" r="3" fill="#333"/>
-    <text x="${pad}" y="${height - 6}" fill="#333" font-size="11">0</text>
+    ${Number.isFinite(umbral) ? `<line x1="${pad}" x2="${width-pad}" y1="${scaleY(umbral)}" y2="${scaleY(umbral)}" stroke="#986d46" stroke-dasharray="5 4"/><text x="${width-pad}" y="${scaleY(umbral)-4}" text-anchor="end" font-size="10">Umbral · ${fmt(umbral)}</text>` : ''}
+    ${markers}
+    <text x="${pad}" y="${height - 6}" fill="#333" font-size="11">${fmt(tMin)}</text>
     <text x="${width - 40}" y="${height - 6}" fill="#333" font-size="11">${fmt(tMax)}</text>
+    <text x="${pad-4}" y="${pad+4}" text-anchor="end" fill="currentColor" font-size="9">${fmt(yMax)}</text>
+    <text x="${pad-4}" y="${height-pad}" text-anchor="end" fill="currentColor" font-size="9">${fmt(yMin)}</text>
     <text x="${pad + 5}" y="${pad - 5}" fill="#333" font-size="11">valor</text>
   `;
 }
@@ -100,6 +103,7 @@ function drawChart2Sen(res) {
     const x = pad + i * (width - 2 * pad) / metodos.length;
     const barH = maxErr > 0 ? (m.valor / maxErr) * (height - 2 * pad) : 0;
     bars += `<rect x="${x - 12}" y="${height - pad - barH}" width="24" height="${barH}" fill="#2e7d32"/>`;
+    bars += `<text x="${x}" y="${height-pad-barH-5}" text-anchor="middle" fill="currentColor" font-size="10">${fmt(m.valor)}</text>`;
     labels += `<text x="${x}" y="${height - pad + 18}" fill="#333" font-size="10" text-anchor="middle">${m.name}</text>`;
   });
 
@@ -113,7 +117,7 @@ function drawChart2Sen(res) {
   `;
 }
 
-function renderResultados(res) {
+function renderResultados(res, preserveTime) {
   const { resultados, errorOcultos, errorConocidos, raiz } = res;
 
   $('err-lag').textContent = fmt(errorOcultos.lagrange);
@@ -131,7 +135,7 @@ function renderResultados(res) {
 
   const conclusions = experiment('sensores', res.scenario, res.entradas).conclusions;
   $('conclusion-sen').innerHTML = `<h3>Conclusión numérica</h3><p>${conclusions.numerical}</p><h3>Conclusión del problema</h3><p>${conclusions.problem}</p>`;
-  renderDemo('sensores', res, res.entradas);
+  renderDemo('sensores', res, res.entradas, {preserveTime});
   drawChartSen(res);
   drawChart2Sen(res);
   renderIteracionSen(res);
@@ -144,8 +148,8 @@ function renderSensitivitySen(res) {
   const { entradas } = res;
   const epsilon = 0.0001;
 
-  const rOrig = simulateSensores(entradas);
-  const rPert = simulateSensores({ ...entradas, perturbation: epsilon });
+  const rOrig = res;
+  const rPert = simulateSensores({ ...entradas, scenario: res.scenario, perturbation: epsilon });
 
   const cambioLag = rPert.errorOcultos.lagrange - rOrig.errorOcultos.lagrange;
   const cambioNew = rPert.errorOcultos.newton - rOrig.errorOcultos.newton;
@@ -200,16 +204,17 @@ function renderEscenariosSen(res) {
   $('scenario-results-sen').innerHTML = filas;
 }
 
-function runSen() {
+const runSen = bindSimulationInputs(['funcion-sen', 'n-nodos', 'sen-a', 'sen-b', 'sen-ruido', 'sen-ocultar', 'sen-umbral', 'tol-sen'], calculate);
+function calculate(preserveTime) {
   try {
     const v = inputsSen();
     if (!v.nNodos || v.nNodos < 4 || v.b <= v.a || v.tolerance < 1e-10 || v.tolerance > 0.1) {
-      throw new Error('Introduce valores válidos: nodos ≥ 3, b > a, tolerancia entre 10⁻¹⁰ y 0,1.');
+      throw new Error('Introduce valores válidos: nodos de 4 a 20, b > a, tolerancia entre 10⁻¹⁰ y 0,1.');
     }
     $('error-sen').textContent = '';
     const res = simulateSensores(v);
     last = { entradas: v, resultados: res };
-    renderResultados(res);
+    renderResultados(res, preserveTime);
     return true;
   } catch (e) {
     last = null;
@@ -217,7 +222,7 @@ function runSen() {
     $('output-status-sen').textContent = 'No se pudo calcular. Corrige las entradas.';
     ['err-lag', 'err-new', 'err-spl'].forEach(id => $(id).textContent = '—');
     $('explanation-sen').textContent = '';
-    $('chart-sen').replaceChildren();
+    clearDemo('demo-sensores'); $('chart-sen').replaceChildren();
     $('chart2-sen').replaceChildren();
     ['method-results-sen', 'root-results-sen', 'iteration-results-sen', 'scenario-results-sen', 'sensitivity-sen', 'conclusion-sen'].forEach(id => $(id).replaceChildren());
     return false;

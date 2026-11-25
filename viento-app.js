@@ -1,5 +1,6 @@
 import { mountCloudHistory } from './cloud-history.js';
-import { renderDemo } from './demo-scenes.js';
+import { bindSimulationInputs } from './live-inputs.js';
+import { clearDemo, renderDemo } from './demo-scenes.js';
 import { PRESETS, experiment } from './experiments.js';
 import { historyTable, lineChart } from './render.js';
 import { mountLocalHistory } from './local-history-ui.js';
@@ -43,7 +44,7 @@ function inputsVin() {
 
 function drawChartVin(res) {
   const {t,x,tRef,xRef}=res.grafica;
-  lineChart($('chart-vin'),[{points:t.map((t,i)=>({x:t,y:x[i]}))},{points:tRef.map((t,i)=>({x:t,y:xRef[i]}))}],{xLabel:'Tiempo (s)',yLabel:'Desplazamiento (m)',log:false});
+  lineChart($('chart-vin'),[{points:t.map((t,i)=>({x:t,y:x[i]}))},{points:tRef.map((t,i)=>({x:t,y:xRef[i]}))}],{xLabel:'Tiempo (s)',yLabel:'Desplazamiento (m)',log:false,yDomain:[0,2]});
 }
 
 function fmtError(v) {
@@ -51,33 +52,14 @@ function fmtError(v) {
 }
 
 function drawChart2Vin(res) {
-  const svg = $('chart2-vin');
   const { t, x, xRK2 } = res.grafica;
-  const width = 600;
-  const height = 220;
-  const pad = 40;
-
-  const tMax = Math.max(...t);
-  const diff = t.map((ti, i) => Math.abs(x[i] - (xRK2[i] || 0)));
-  const maxDiff = Math.max(...diff, 1e-10);
-
-  const scaleX = (ti) => pad + (ti / tMax) * (width - 2 * pad);
-  const scaleY = (val) => height - pad - (val / maxDiff) * (height - 2 * pad);
-
-  const pts = t.map((ti, i) => `${scaleX(ti)},${scaleY(diff[i])}`).join(' ');
-
-  svg.innerHTML = `
-    <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#333" stroke-width="1"/>
-    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#333" stroke-width="1"/>
-    <polyline fill="none" stroke="#c62828" stroke-width="2" points="${pts}"/>
-    <text x="${pad}" y="${height - 6}" fill="#333" font-size="11">0</text>
-    <text x="${width - 40}" y="${height - 6}" fill="#333" font-size="11">${fmt(tMax)} s</text>
-    <text x="${pad + 5}" y="${pad - 5}" fill="#333" font-size="11">|x_RK4 − x_RK2|</text>
-    <text x="${scaleX(tMax / 2)}" y="${height - 2}" fill="#333" font-size="11" text-anchor="middle">tiempo (s)</text>
-  `;
+  const points = t.map((time, i) => ({ x: time, y: Math.abs(x[i] - xRK2[i]) }));
+  lineChart($('chart2-vin'), [{ points }], {
+    xLabel: 'Tiempo (s)', yLabel: 'Diferencia absoluta entre RK4 y RK2 (m)', log: false, yDomain: [0]
+  });
 }
 
-function renderResultados(res) {
+function renderResultados(res, preserveTime) {
   const { ref, resultados } = res;
 
   $('x-max').textContent = fmt(ref.xMax);
@@ -94,7 +76,7 @@ function renderResultados(res) {
 
   const conclusions = experiment('viento', res.scenario, res.entradas).conclusions;
   $('conclusion-vin').innerHTML = `<h3>Conclusión numérica</h3><p>${conclusions.numerical}</p><h3>Conclusión del problema</h3><p>${conclusions.problem}</p>`;
-  renderDemo('viento', res, res.entradas);
+  renderDemo('viento', res, res.entradas, {preserveTime});
   drawChartVin(res);
   drawChart2Vin(res);
   renderIteracionVin(res);
@@ -151,16 +133,17 @@ function renderEscenariosVin(res) {
   $('scenario-results-vin').innerHTML = filas;
 }
 
-function runVin() {
+const runVin = bindSimulationInputs(ids, calculate);
+function calculate(preserveTime) {
   try {
     const v = inputsVin();
-    if (!v.m || !v.c || !v.k || v.tolerance < 1e-10 || v.tolerance > 0.1 || v.h <= 0) {
-      throw new Error('Introduce valores válidos: m > 0, c > 0, k > 0, tolerancia entre 10⁻¹⁰ y 0,1, h > 0.');
+    if (v.c < 0 || v.m <= 0 || v.k <= 0 || v.tolerance < 1e-10 || v.tolerance > 0.1 || v.h <= 0) {
+      throw new Error('Introduce valores válidos: m > 0, c ≥ 0, k > 0, tolerancia entre 10⁻¹⁰ y 0,1, h > 0.');
     }
     $('error-vin').textContent = '';
     const res = simulateViento(v);
     last = { entradas: v, resultados: res };
-    renderResultados(res);
+    renderResultados(res, preserveTime);
     return true;
   } catch (e) {
     last = null;
@@ -168,7 +151,7 @@ function runVin() {
     $('output-status-vin').textContent = 'No se pudo calcular. Corrige las entradas.';
     ['x-max', 't-end', 'x-ref'].forEach(id => $(id).textContent = '—');
     $('explanation-vin').textContent = '';
-    $('chart-vin').replaceChildren();
+    clearDemo('demo-viento'); $('chart-vin').replaceChildren();
     $('chart2-vin').replaceChildren();
     ['method-results-vin', 'integ-results-vin', 'iteration-results-vin', 'scenario-results-vin', 'sensitivity-vin', 'conclusion-vin'].forEach(id => $(id).replaceChildren());
     return false;

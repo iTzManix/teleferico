@@ -1,5 +1,6 @@
 import { mountCloudHistory } from './cloud-history.js';
-import { renderDemo } from './demo-scenes.js';
+import { bindSimulationInputs } from './live-inputs.js';
+import { clearDemo, renderDemo } from './demo-scenes.js';
 import { PRESETS, experiment } from './experiments.js';
 import { historyTable } from './render.js';
 import { mountLocalHistory } from './local-history-ui.js';
@@ -13,10 +14,10 @@ function inputs() { return Object.fromEntries([...ids.map(id => [id, $(id).value
 
 function draw(result, threshold) {
   let svg = $('chart'),
-    end = Math.max(3, Math.min(36, (result.crossing || 12) * 1.3)), [d, a, b] = result.ref, vals = Array.from({ length: 101 }, (_, i) => d + a * (end * i / 100) + b * (end * i / 100) ** 2),
+    end = Math.max(3, Math.min(36, (result.crossing ?? 12) * 1.3)), [d, a, b] = result.ref, vals = Array.from({ length: 101 }, (_, i) => d + a * (end * i / 100) + b * (end * i / 100) ** 2),
     min = Math.min(0, threshold, ...vals),
     max = Math.max(1, threshold, ...vals), y = v => 200 - (v - min) / (max - min) * 180, pts = vals.map((v, i) => `${40 + i * 5.4},${y(v)}`).join(' ');
-  svg.innerHTML = `<line x1="40" y1="200" x2="580" y2="200" stroke="#aab5aa"/><line x1="40" y1="${y(threshold)}" x2="580" y2="${y(threshold)}" stroke="#bb7a58" stroke-dasharray="5 5"/><polyline fill="none" stroke="#72947b" stroke-width="3" points="${pts}"/><text x="40" y="216" fill="#859185" font-size="11">0 meses</text><text x="520" y="216" fill="#859185" font-size="11">${fmt(end)} meses</text>`
+  svg.innerHTML = `<line x1="40" y1="200" x2="580" y2="200" stroke="#aab5aa"/><line x1="40" y1="${y(threshold)}" x2="580" y2="${y(threshold)}" stroke="#bb7a58" stroke-dasharray="5 5"/><text x="44" y="${Math.max(14,y(threshold)-5)}" fill="currentColor" font-size="11">Umbral · ${fmt(threshold)} puntos</text><polyline fill="none" stroke="#72947b" stroke-width="3" points="${pts}"/><text x="40" y="216" fill="#859185" font-size="11">0 meses</text><text x="520" y="216" fill="#859185" font-size="11">${fmt(end)} meses</text>`
 }
 
 function draw2(result) {
@@ -70,11 +71,12 @@ function comparisons(res) {
 
   $('scenario-results').innerHTML = Object.entries(presets).map(([scenario, p]) => { let v = Object.fromEntries([...ids.map((id, i) => [id, p.values[i]]), ['scenario', scenario]]), r = simulate(v); return `<tr><td>${{ normal: 'Normal', estres: 'Estrés', mal: 'Mal condicionado' }[scenario]}</td><td>${fmt(r.ref[0])}</td><td>${fmt(r.ref[1])}</td><td>${fmt(r.ref[2])}</td><td>${fmt(v.threshold)}</td><td>${r.crossing === null ? 'No calculado' : fmt(r.crossing)}</td><td>${fmt(r.condition)}</td></tr>` }).join('');
 }
-function run() {
+const run = bindSimulationInputs(ids, calculate);
+function calculate(preserveTime) {
   try {
     let v = inputs(), res = simulate(v); last = { entradas: v, resultados: res }; $('error').textContent = ''; $('crossing').textContent = res.crossing === null ? 'No calculado' : fmt(res.crossing); $('initial').textContent = fmt(res.ref[0]); $('condition').textContent = fmt(res.condition); $('explanation').textContent = res.crossing === 0 ? 'El índice inicial ya alcanza o supera el umbral.' : res.crossing === null ? 'La curva obtenida no cumple las hipótesis de crecimiento del cálculo de umbral. Revisa los datos.' : `Con estas lecturas, el modelo estima el umbral en ${fmt(res.crossing)} meses. α = ${fmt(res.ref[1])} y β = ${fmt(res.ref[2])};
-un crecimiento mayor puede adelantar la inspección. Es una proyección hipotética, no un diagnóstico.`; $('method-results').innerHTML = res.results.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió / precisión insuficiente'}</td><td>${r.it || 'Directo'}</td><td>${fmt(r.residual)}</td><td>${fmt(r.error)}</td><td>${fmt(r.relativeError)}</td><td>${r.relativeError === null ? '—' : fmt(r.relativeError * 100) + '%'}</td></tr>`).join(''); draw(res, v.threshold); renderDemo('deterioro',res,v); draw2(res); comparisons(res); renderSensitivityDet(); $('output-status').textContent = 'Simulación actualizada · revisa la gráfica y la comparación de métodos.'; return true
-  } catch (e) { last = null; $('error').textContent = e.message; $('output-status').textContent = 'No se pudo calcular. Corrige las entradas para actualizar los resultados.';['crossing', 'initial', 'condition'].forEach(id => $(id).textContent = '—'); $('explanation').textContent = ''; $('chart').replaceChildren(); $('chart2').replaceChildren(); ['method-results', 'parameter-results', 'iteration-results', 'scenario-results', 'sensitivity-det'].forEach(id => $(id).replaceChildren()); return false }
+un crecimiento mayor puede adelantar la inspección. Es una proyección hipotética, no un diagnóstico.`; $('method-results').innerHTML = res.results.map(r => `<tr><td>${r.name}</td><td>${r.converged ? 'Convergió' : 'No convergió / precisión insuficiente'}</td><td>${r.it || 'Directo'}</td><td>${fmt(r.residual)}</td><td>${fmt(r.error)}</td><td>${fmt(r.relativeError)}</td><td>${r.relativeError === null ? '—' : fmt(r.relativeError * 100) + '%'}</td></tr>`).join(''); draw(res, v.threshold); renderDemo('deterioro',res,v,{preserveTime}); draw2(res); comparisons(res); renderSensitivityDet(); $('output-status').textContent = 'Simulación actualizada · revisa la gráfica y la comparación de métodos.'; return true
+  } catch (e) { last = null; $('error').textContent = e.message; $('output-status').textContent = 'No se pudo calcular. Corrige las entradas para actualizar los resultados.';['crossing', 'initial', 'condition'].forEach(id => $(id).textContent = '—'); $('explanation').textContent = ''; clearDemo('demo-deterioro'); $('chart').replaceChildren(); $('chart2').replaceChildren(); ['method-results', 'parameter-results', 'iteration-results', 'scenario-results', 'sensitivity-det'].forEach(id => $(id).replaceChildren()); return false }
 }
 
 $('scenario').addEventListener('change', () => { let p = presets[$('scenario').value]; ids.forEach((id, i) => $(id).value = p.values[i]); $('scenario-desc').textContent = p.desc; run() }); $('run').addEventListener('click', () => { if (run()) { $('output').focus({ preventScroll: true }); $('output').scrollIntoView({ behavior: 'smooth', block: 'start' }) } }); const requestedScenario=new URLSearchParams(globalThis.location?.search || '').get('scenario'); if (requestedScenario && presets[requestedScenario]) $('scenario').value=requestedScenario; $('scenario').dispatchEvent(new Event('change'));

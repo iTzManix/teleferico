@@ -11,7 +11,7 @@ class Element {
   addEventListener(name,fn){this.events[name]=fn;}
   dispatchEvent(e){this.events[e.type]?.(e);}
   append(...children){this.children.push(...children);}
-  replaceChildren(...children){this.children=children;}
+  replaceChildren(...children){this.children=children;this.innerHTML='';this.textContent='';}
   setAttribute(k,v){this[k]=v;}
   scrollIntoView(){} focus(){}
   querySelector(selector){return this.events[selector] ||= new Element(selector);}
@@ -48,7 +48,7 @@ test('las páginas entregadas ejecutan sus paquetes clásicos sin servidor ni m�
     elements.get(scenario).value='normal';
     if(page==='validacion') {elements.get('case-filter').value='deterioro';elements.get('trace-metric').value='error';}
     const document={getElementById:id=>elements.get(id)||null,querySelectorAll:()=>[],createElement:tag=>new Element(tag)};
-    runInNewContext(await readFile(script,'utf8'),{document,performance,Event,setTimeout,URLSearchParams,console:{error:e=>errors.push(e.message)},location:{protocol:'file:',search:''}},{filename:script,timeout:5000});
+    runInNewContext(await readFile(script,'utf8'),{document,performance,Event,setTimeout,clearTimeout,URLSearchParams,console:{error:e=>errors.push(e.message)},location:{protocol:'file:',search:''}},{filename:script,timeout:5000});
     if(page==='validacion') {const deadline=Date.now()+2000;while(!elements.get('coverage').textContent&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(elements.get('coverage').textContent,'12/12');}
     assert.deepEqual(errors,[],page+': el paquete no pudo iniciar');
     assert.ok(elements.get(result).innerHTML.includes('<tr>'),page+': falta el ejemplo calculado');
@@ -56,6 +56,45 @@ test('las páginas entregadas ejecutan sus paquetes clásicos sin servidor ni m�
     if(page!=='validacion') {elements.get('restore-'+page).onclick();assert.equal(elements.get(scenario).value,'normal');}
   }
 });
+for (const [page, script, suffix, field, value, metric, expected, invalidField] of [
+  ['detencion','detencion-app.js','-det','v0','20','d-total','120.000','v0'],
+  ['deterioro','app.js','','y2','20','crossing','6.361','y2'],
+  ['viento','viento-app.js','-vin','F','200','x-max','1.779','m'],
+  ['sensores','sensores-app.js','-sen','funcion-sen','exp','err-lag','0.016','n-nodos']
+]) {
+  test(page+' actualiza la escena, ambas gráficas y las tablas al editar',async()=>{
+    const html=await readFile(page+'.html','utf8');
+    const elements=new Map([...html.matchAll(/\bid="([^"]+)"/g)].map(([,id])=>[id,new Element(id)]));
+    const get=id=>elements.get(id);
+    const scenario=get('scenario'+suffix);
+    scenario.value='normal';
+    globalThis.document={getElementById:get,querySelectorAll:()=>[],createElement:tag=>new Element(tag)};
+    await import('./'+script+'?edicion');
+
+    const demo=get('demo-'+page);
+    const chartsAndTables=['chart','chart2','method-results','iteration-results'].map(id=>get(id+suffix));
+    const scene=demo.querySelector('[data-scene]');
+    const tracked=[scene,...chartsAndTables];
+    const before=tracked.map(el=>el.innerHTML);
+    const reference=get('scenario-results'+suffix).innerHTML;
+    const initial=get(metric).textContent;
+    get(field).value=value;
+    // Las entradas numéricas deben responder incluso antes de perder el foco.
+    get(field).dispatchEvent(new Event(page==='sensores'?'change':'input'));
+    await new Promise(resolve=>setTimeout(resolve,220));
+    assert.equal(get(metric).textContent,expected);
+    tracked.forEach((el,i)=>{assert.ok(el.innerHTML);assert.notEqual(el.innerHTML,before[i]);});
+    assert.equal(get('scenario-results'+suffix).innerHTML,reference);
+
+    get(invalidField).value='';
+    get(invalidField).dispatchEvent(new Event('change'));
+    assert.ok(get('error'+suffix).textContent);
+    for(const el of [demo,...chartsAndTables]) assert.equal(el.innerHTML,'');
+    get('restore-'+page).onclick();
+    assert.equal(get(metric).textContent,initial);
+    assert.equal(get('error'+suffix).textContent,'');
+  });
+}
 test('los filtros de validación tienen opciones y enlace de simulador aun antes de ejecutar JavaScript',async()=>{
   const html=await readFile('validacion.html','utf8');
   for(const [id,count] of [['case-filter',4],['scenario-filter',3]]) {
